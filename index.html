@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labour Management System</title><style>
+body { font-family: Arial; background:#0b1f3a; color:white; padding:20px; }
+h1 { text-align:center; }
+.section { margin-top:30px; }
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+th, td { border:1px solid #fff; padding:8px; text-align:center; }
+th { background:#1e3a8a; }
+input, select { padding:5px; margin:3px; }
+button { padding:10px; background:#2563eb; color:white; border:none; cursor:pointer; }
+.header-box { background:#1e3a8a; padding:15px; border-radius:10px; }
+</style></head>
+<body><h1>Labour Management System</h1><div class="section header-box">
+<h2>Project Details</h2>
+<input id="venue" placeholder="Venue">
+<input id="projectName" placeholder="Project Name (optional)">
+<input id="startDate" type="date">
+<input id="endDate" type="date">
+<button onclick="saveProject()">Save Project</button>
+<p id="projectDisplay"></p>
+</div><div class="section">
+<h2>Add Worker</h2>
+<input id="name" placeholder="Name">
+<input id="number" placeholder="Phone Number">
+<select id="type">
+<option value="Skilled">Skilled</option>
+<option value="Casual">Casual</option>
+</select>
+<input id="rate" placeholder="Daily Rate">
+<button onclick="addWorker()">Add Worker</button>
+</div><div class="section">
+<h2>Workers Table</h2>
+<table id="table">
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Rate</th>
+<th>Mon</th>
+<th>Tue</th>
+<th>Wed</th>
+<th>Thu</th>
+<th>Fri</th>
+<th>Sat</th>
+<th>Sun</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div><script>
+const SHEET_API = "YOUR_GOOGLE_SCRIPT_URL";
+
+let workers = [];
+let project = {};
+
+function saveProject(){
+    project = {
+        venue: document.getElementById('venue').value,
+        projectName: document.getElementById('projectName').value,
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value
+    };
+
+    document.getElementById('projectDisplay').innerText =
+        `Project: ${project.projectName || 'N/A'} | Venue: ${project.venue} | Start: ${project.startDate || 'N/A'} | End: ${project.endDate || 'N/A'}`;
+
+    saveProjectToSheet();
+}
+
+function addWorker(){
+    const name = document.getElementById('name').value;
+    const number = document.getElementById('number').value;
+    const type = document.getElementById('type').value;
+    const rate = parseFloat(document.getElementById('rate').value);
+
+    const worker = {
+        name, number, type, rate,
+        days: ['','','','','','','']
+    };
+
+    workers.push(worker);
+    render();
+    saveToSheet(worker);
+}
+
+function render(){
+    const tbody = document.querySelector('#table tbody');
+    tbody.innerHTML = '';
+
+    workers.forEach((w,i)=>{
+        let row = `<tr>
+        <td>${w.name}</td>
+        <td>${w.type}</td>
+        <td>${w.rate}</td>`;
+
+        let total = 0;
+
+        w.days.forEach((d,di)=>{
+            row += `<td>
+            <input value="${d}" onchange="updateDay(${i},${di},this.value)">
+            </td>`;
+
+            if(d.toLowerCase()=='y') total += w.rate;
+            if(d.toLowerCase()=='n') total += 0;
+            if(d=='Y/N' || d=='y/n') total += w.rate/2;
+        });
+
+        row += `<td>${total}</td></tr>`;
+        tbody.innerHTML += row;
+    });
+}
+
+function updateDay(i, di, val){
+    workers[i].days[di] = val;
+    render();
+}
+
+function saveToSheet(worker){
+    fetch(SHEET_API, {
+        method:'POST',
+        body: JSON.stringify({type:'worker', data:worker})
+    });
+}
+
+function saveProjectToSheet(){
+    fetch(SHEET_API, {
+        method:'POST',
+        body: JSON.stringify({type:'project', data:project})
+    });
+}
+
+</script></body>
+  </html>

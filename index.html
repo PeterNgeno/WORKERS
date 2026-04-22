@@ -5,141 +5,173 @@
 <title>Labour Management System</title><style>
 body { font-family: Arial; background:#0b1f3a; color:white; padding:20px; }
 h1 { text-align:center; }
-.section { margin-top:30px; }
+.section { margin-top:25px; }
 table { width:100%; border-collapse: collapse; margin-top:10px; }
-th, td { border:1px solid #fff; padding:8px; text-align:center; }
+th, td { border:1px solid #fff; padding:6px; text-align:center; }
 th { background:#1e3a8a; }
 input, select { padding:5px; margin:3px; }
-button { padding:10px; background:#2563eb; color:white; border:none; cursor:pointer; }
-.header-box { background:#1e3a8a; padding:15px; border-radius:10px; }
+button { padding:8px; background:#2563eb; color:white; border:none; cursor:pointer; }
+.header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
 .admin-only { display:none; }
 </style></head>
-<body><h1>Labour Management System</h1><!-- ADMIN TOGGLE --><div class="section">
-<label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
-</div><!-- PROJECT DETAILS --><div class="section header-box">
-<h2>Project Details</h2>
+<body><h1>Labour Management System</h1><label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
+
+<div class="section header-box">
+<h3>Project</h3>
 <input id="venue" placeholder="Venue">
-<input id="projectName" placeholder="Project Name (optional)">
+<input id="projectName" placeholder="Project Name">
 <input id="startDate" type="date">
 <input id="endDate" type="date">
-<button onclick="saveProject()">Save Project</button>
+<button onclick="saveProject()">Save</button>
 <p id="projectDisplay"></p>
-</div><!-- ADD WORKER --><div class="section">
-<h2>Add Worker</h2>
+</div><div class="section">
+<h3>Week Control</h3>
+<input id="weekNumber" type="number" placeholder="Week Number">
+<button onclick="setWeek()">Set Week</button>
+<p id="weekDisplay"></p>
+</div><div class="section">
+<h3>Add Worker</h3>
 <input id="name" placeholder="Name">
-<input id="number" placeholder="Phone Number" class="admin-only">
-<input id="idNumber" placeholder="ID (optional)" class="admin-only">
+<input id="number" placeholder="Phone" class="admin-only">
+<input id="idNumber" placeholder="ID" class="admin-only">
 <select id="type">
 <option value="Skilled">Skilled</option>
 <option value="Casual">Casual</option>
 </select>
-<input id="rate" placeholder="Daily Rate">
-<button onclick="addWorker()">Add Worker</button>
-</div><!-- SKILLED TABLE --><div class="section">
-<h2>Skilled Labourers</h2>
-<table id="skilledTable">
-<thead>
+<input id="rate" placeholder="Rate">
+<button onclick="addWorker()">Add</button>
+</div><div class="section">
+<h3>Skilled Labourers</h3>
+<table id="skilledTable"><thead>
 <tr>
-<th>Name</th>
-<th class="admin-only">Phone</th>
-<th class="admin-only">ID</th>
+<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-<th>Total</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div><!-- CASUAL TABLE --><div class="section">
-<h2>Casual Labourers</h2>
-<table id="casualTable">
-<thead>
+<th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
+</tr></thead><tbody></tbody></table>
+</div><div class="section">
+<h3>Casual Labourers</h3>
+<table id="casualTable"><thead>
 <tr>
-<th>Name</th>
-<th class="admin-only">Phone</th>
-<th class="admin-only">ID</th>
+<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-<th>Total</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
+<th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
+</tr></thead><tbody></tbody></table>
 </div><script>
-const SHEET_API = "YOUR_GOOGLE_SCRIPT_URL";
+const SHEET_API = "https://script.google.com/macros/s/AKfycbyIvyVn0ockKF4jqXEX_xUz7dWF3erWhFu2O5mmnFkD0uaYOrmcpn3gjmkmy8E1rEKYSw/exec";
 
 let workers = [];
-let project = {};
 let isAdmin = false;
+let currentWeek = 1;
+let project = {};
 
 function toggleAdmin(state){
-    isAdmin = state;
-    document.querySelectorAll('.admin-only').forEach(el=>{
-        el.style.display = state ? 'table-cell' : 'none';
-    });
+  isAdmin = state;
+  document.querySelectorAll('.admin-only').forEach(e=>{
+    e.style.display = state ? 'table-cell' : 'none';
+  });
 }
 
 function saveProject(){
-    project = {
-        venue: document.getElementById('venue').value,
-        projectName: document.getElementById('projectName').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value
-    };
+  project = {
+    venue: venue.value,
+    projectName: projectName.value,
+    startDate: startDate.value,
+    endDate: endDate.value
+  };
+  projectDisplay.innerText = `${project.projectName || 'N/A'} | ${project.venue}`;
+}
 
-    document.getElementById('projectDisplay').innerText =
-        `Project: ${project.projectName || 'N/A'} | Venue: ${project.venue} | Start: ${project.startDate || 'N/A'} | End: ${project.endDate || 'N/A'}`;
+function setWeek(){
+  currentWeek = parseInt(weekNumber.value);
+  weekDisplay.innerText = "Current Week: " + currentWeek;
 }
 
 function addWorker(){
-    const worker = {
-        name: document.getElementById('name').value,
-        number: document.getElementById('number').value,
-        id: document.getElementById('idNumber').value,
-        type: document.getElementById('type').value,
-        rate: parseFloat(document.getElementById('rate').value),
-        days: ['','','','','','','']
-    };
+  workers.push({
+    name: name.value,
+    number: number.value,
+    id: idNumber.value,
+    type: type.value,
+    rate: parseFloat(rate.value),
+    weeks: {}
+  });
+  render();
+}
 
-    workers.push(worker);
-    render();
+function getWeekData(w, week){
+  if(!w.weeks[week]){
+    w.weeks[week] = {
+      days:['','','','','','',''],
+      paid:0,
+      arrears:0
+    };
+  }
+  return w.weeks[week];
 }
 
 function render(){
-    const skilledBody = document.querySelector('#skilledTable tbody');
-    const casualBody = document.querySelector('#casualTable tbody');
+  skilledTable.querySelector('tbody').innerHTML='';
+  casualTable.querySelector('tbody').innerHTML='';
 
-    skilledBody.innerHTML = '';
-    casualBody.innerHTML = '';
+  workers.forEach((w,i)=>{
+    let wd = getWeekData(w,currentWeek);
+    let total = 0;
 
-    workers.forEach((w,i)=>{
-        let total = 0;
+    let row = `<tr>
+    <td>${w.name}</td>
+    <td class='admin-only'>${w.number}</td>
+    <td class='admin-only'>${w.id}</td>
+    <td>${w.rate}</td>`;
 
-        let row = `<tr>
-        <td>${w.name}</td>
-        <td class="admin-only">${w.number}</td>
-        <td class="admin-only">${w.id}</td>
-        <td>${w.rate}</td>`;
-
-        w.days.forEach((d,di)=>{
-            row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
-
-            if(d.toLowerCase()=='y') total += w.rate;
-            if(d.toLowerCase()=='n') total += 0;
-            if(d=='Y/N' || d=='y/n') total += w.rate/2;
-        });
-
-        row += `<td>${total}</td></tr>`;
-
-        if(w.type === 'Skilled') skilledBody.innerHTML += row;
-        else casualBody.innerHTML += row;
+    wd.days.forEach((d,di)=>{
+      row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
+      if(d.toLowerCase()=='y') total+=w.rate;
+      if(d=='Y/N'||d=='y/n') total+=w.rate/2;
     });
+
+    let arrears = wd.arrears;
+    let totalDue = total + arrears;
+    let balance = totalDue - wd.paid;
+
+    row += `<td>${total}</td>
+    <td>${arrears}</td>
+    <td>${totalDue}</td>
+    <td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
+    <td>${balance}</td>
+    </tr>`;
+
+    if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
+    else casualTable.querySelector('tbody').innerHTML+=row;
+  });
 }
 
-function updateDay(i, di, val){
-    workers[i].days[di] = val;
-    render();
+function updateDay(i,di,val){
+  workers[i].weeks[currentWeek].days[di]=val;
+  render();
+}
+
+function updatePaid(i,val){
+  workers[i].weeks[currentWeek].paid=parseFloat(val)||0;
+  calculateArrears(i);
+  render();
+}
+
+function calculateArrears(i){
+  let w = workers[i];
+  let prevWeek = currentWeek -1;
+  if(prevWeek>0 && w.weeks[prevWeek]){
+    let prev = w.weeks[prevWeek];
+    let prevTotal = 0;
+    prev.days.forEach(d=>{
+      if(d.toLowerCase()=='y') prevTotal+=w.rate;
+      if(d=='Y/N'||d=='y/n') prevTotal+=w.rate/2;
+    });
+    let prevBalance = (prevTotal + prev.arrears) - prev.paid;
+    w.weeks[currentWeek].arrears = prevBalance>0 ? prevBalance : 0;
+  }
 }
 
 </script></body>
-</html>
+          </html>

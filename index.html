@@ -12,8 +12,11 @@ th { background:#1e3a8a; }
 input, select { padding:5px; margin:3px; }
 button { padding:10px; background:#2563eb; color:white; border:none; cursor:pointer; }
 .header-box { background:#1e3a8a; padding:15px; border-radius:10px; }
+.admin-only { display:none; }
 </style></head>
-<body><h1>Labour Management System</h1><div class="section header-box">
+<body><h1>Labour Management System</h1><!-- ADMIN TOGGLE --><div class="section">
+<label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
+</div><!-- PROJECT DETAILS --><div class="section header-box">
 <h2>Project Details</h2>
 <input id="venue" placeholder="Venue">
 <input id="projectName" placeholder="Project Name (optional)">
@@ -21,31 +24,42 @@ button { padding:10px; background:#2563eb; color:white; border:none; cursor:poin
 <input id="endDate" type="date">
 <button onclick="saveProject()">Save Project</button>
 <p id="projectDisplay"></p>
-</div><div class="section">
+</div><!-- ADD WORKER --><div class="section">
 <h2>Add Worker</h2>
 <input id="name" placeholder="Name">
-<input id="number" placeholder="Phone Number">
+<input id="number" placeholder="Phone Number" class="admin-only">
+<input id="idNumber" placeholder="ID (optional)" class="admin-only">
 <select id="type">
 <option value="Skilled">Skilled</option>
 <option value="Casual">Casual</option>
 </select>
 <input id="rate" placeholder="Daily Rate">
 <button onclick="addWorker()">Add Worker</button>
-</div><div class="section">
-<h2>Workers Table</h2>
-<table id="table">
+</div><!-- SKILLED TABLE --><div class="section">
+<h2>Skilled Labourers</h2>
+<table id="skilledTable">
 <thead>
 <tr>
 <th>Name</th>
-<th>Type</th>
+<th class="admin-only">Phone</th>
+<th class="admin-only">ID</th>
 <th>Rate</th>
-<th>Mon</th>
-<th>Tue</th>
-<th>Wed</th>
-<th>Thu</th>
-<th>Fri</th>
-<th>Sat</th>
-<th>Sun</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div><!-- CASUAL TABLE --><div class="section">
+<h2>Casual Labourers</h2>
+<table id="casualTable">
+<thead>
+<tr>
+<th>Name</th>
+<th class="admin-only">Phone</th>
+<th class="admin-only">ID</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Total</th>
 </tr>
 </thead>
@@ -56,6 +70,14 @@ const SHEET_API = "YOUR_GOOGLE_SCRIPT_URL";
 
 let workers = [];
 let project = {};
+let isAdmin = false;
+
+function toggleAdmin(state){
+    isAdmin = state;
+    document.querySelectorAll('.admin-only').forEach(el=>{
+        el.style.display = state ? 'table-cell' : 'none';
+    });
+}
 
 function saveProject(){
     project = {
@@ -67,42 +89,40 @@ function saveProject(){
 
     document.getElementById('projectDisplay').innerText =
         `Project: ${project.projectName || 'N/A'} | Venue: ${project.venue} | Start: ${project.startDate || 'N/A'} | End: ${project.endDate || 'N/A'}`;
-
-    saveProjectToSheet();
 }
 
 function addWorker(){
-    const name = document.getElementById('name').value;
-    const number = document.getElementById('number').value;
-    const type = document.getElementById('type').value;
-    const rate = parseFloat(document.getElementById('rate').value);
-
     const worker = {
-        name, number, type, rate,
+        name: document.getElementById('name').value,
+        number: document.getElementById('number').value,
+        id: document.getElementById('idNumber').value,
+        type: document.getElementById('type').value,
+        rate: parseFloat(document.getElementById('rate').value),
         days: ['','','','','','','']
     };
 
     workers.push(worker);
     render();
-    saveToSheet(worker);
 }
 
 function render(){
-    const tbody = document.querySelector('#table tbody');
-    tbody.innerHTML = '';
+    const skilledBody = document.querySelector('#skilledTable tbody');
+    const casualBody = document.querySelector('#casualTable tbody');
+
+    skilledBody.innerHTML = '';
+    casualBody.innerHTML = '';
 
     workers.forEach((w,i)=>{
-        let row = `<tr>
-        <td>${w.name}</td>
-        <td>${w.type}</td>
-        <td>${w.rate}</td>`;
-
         let total = 0;
 
+        let row = `<tr>
+        <td>${w.name}</td>
+        <td class="admin-only">${w.number}</td>
+        <td class="admin-only">${w.id}</td>
+        <td>${w.rate}</td>`;
+
         w.days.forEach((d,di)=>{
-            row += `<td>
-            <input value="${d}" onchange="updateDay(${i},${di},this.value)">
-            </td>`;
+            row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
 
             if(d.toLowerCase()=='y') total += w.rate;
             if(d.toLowerCase()=='n') total += 0;
@@ -110,7 +130,9 @@ function render(){
         });
 
         row += `<td>${total}</td></tr>`;
-        tbody.innerHTML += row;
+
+        if(w.type === 'Skilled') skilledBody.innerHTML += row;
+        else casualBody.innerHTML += row;
     });
 }
 
@@ -119,19 +141,5 @@ function updateDay(i, di, val){
     render();
 }
 
-function saveToSheet(worker){
-    fetch(SHEET_API, {
-        method:'POST',
-        body: JSON.stringify({type:'worker', data:worker})
-    });
-}
-
-function saveProjectToSheet(){
-    fetch(SHEET_API, {
-        method:'POST',
-        body: JSON.stringify({type:'project', data:project})
-    });
-}
-
 </script></body>
-  </html>
+</html>

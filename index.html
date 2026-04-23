@@ -58,7 +58,6 @@ body.admin .admin-only { display:table-cell; }
 <button onclick="addWorker()">Add</button>
 </div>
 
-<!-- EXPORT -->
 <div class="section">
 <h3>Export / Share</h3>
 <button onclick="exportAll('Skilled')">Export Skilled PDF</button>
@@ -94,22 +93,31 @@ body.admin .admin-only { display:table-cell; }
 </thead><tbody></tbody></table>
 </div>
 
-<!-- PDF LIBRARY -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 
 const { jsPDF } = window.jspdf;
 
-const SHEET_API = "YOUR_LINK_HERE";
-
 let workers = [];
 let currentWeek = 1;
 let maxWeek = 1;
 
+/* FORMAT MONEY */
+function formatMoney(num){
+  return "Ksh " + Number(num || 0).toLocaleString();
+}
+
 /* ADMIN */
 function toggleAdmin(state){
   document.body.classList.toggle("admin", state);
+}
+
+/* PROJECT */
+function saveProject(){
+  let v = venue.value;
+  let p = projectName.value;
+  projectDisplay.innerText = "Venue: " + v + " | Project: " + p;
 }
 
 /* WEEK */
@@ -183,7 +191,7 @@ function render(){
     let row=`<tr><td>${w.name}</td>
     <td class='admin-only'>${w.number}</td>
     <td class='admin-only'>${w.id}</td>
-    <td>${w.rate}</td>`;
+    <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d,di)=>{
       row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
@@ -195,10 +203,12 @@ function render(){
     let totalDue=total+arrears;
     let balance=totalDue-wd.paid;
 
-    row+=`<td>${daysWorked}</td><td>${total}</td>
-    <td>${arrears}</td><td>${totalDue}</td>
+    row+=`<td>${daysWorked}</td>
+    <td>${formatMoney(total)}</td>
+    <td>${formatMoney(arrears)}</td>
+    <td>${formatMoney(totalDue)}</td>
     <td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
-    <td>${balance}</td></tr>`;
+    <td>${formatMoney(balance)}</td></tr>`;
 
     if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
     else casualTable.querySelector('tbody').innerHTML+=row;
@@ -219,7 +229,7 @@ function updatePaid(i,val){
   render();
 }
 
-/* 🔥 FIXED ARREARS (NEGATIVE ALLOWED) */
+/* ARREARS */
 function calculateArrears(i){
   let w=workers[i];
   let prevWeek=currentWeek-1;
@@ -234,23 +244,22 @@ function calculateArrears(i){
     });
 
     let prevBalance=(total+prev.arrears)-prev.paid;
-
-    // ✅ KEEP NEGATIVE VALUE
     w.weeks[currentWeek].arrears = prevBalance;
   }
 }
 
-/* 🔥 PDF EXPORT */
+/* EXPORT ALL */
 function exportAll(type){
   let doc=new jsPDF();
-  let y=10;
+  let y=20;
 
-  doc.setFillColor(30,58,138);
-  doc.rect(0,0,210,20,'F');
-  doc.setTextColor(255,255,255);
-  doc.text(type+" Labour Report",10,12);
+  doc.setFontSize(16);
+  doc.text(type+" Labour Report",10,10);
 
-  doc.setTextColor(0,0,0);
+  doc.setFontSize(11);
+  doc.text("Venue: "+(venue.value||""),10,16);
+  doc.text("Project: "+(projectName.value||""),10,22);
+
   y=30;
 
   workers.filter(w=>w.type===type).forEach(w=>{
@@ -258,7 +267,10 @@ function exportAll(type){
 
     Object.keys(w.weeks).forEach(week=>{
       let d=w.weeks[week];
-      doc.text(`Week ${week} | Paid: ${d.paid} | Arrears: ${d.arrears}`,10,y);
+      doc.text(
+        `Week ${week} | Paid: ${formatMoney(d.paid)} | Arrears: ${formatMoney(d.arrears)}`,
+        10,y
+      );
       y+=6;
     });
 
@@ -268,22 +280,30 @@ function exportAll(type){
   doc.save(type+"_report.pdf");
 }
 
+/* EXPORT SINGLE */
 function exportSingle(){
   let name=workerExportName.value.trim();
   let w=workers.find(x=>x.name===name);
   if(!w){ alert("Not found"); return; }
 
   let doc=new jsPDF();
-  let y=20;
+  let y=30;
 
   doc.setFontSize(16);
   doc.text("Worker Report",10,10);
+
+  doc.setFontSize(11);
+  doc.text("Venue: "+(venue.value||""),10,16);
+  doc.text("Project: "+(projectName.value||""),10,22);
 
   doc.text("Name: "+w.name,10,y); y+=10;
 
   Object.keys(w.weeks).forEach(week=>{
     let d=w.weeks[week];
-    doc.text(`Week ${week} Paid: ${d.paid} Arrears: ${d.arrears}`,10,y);
+    doc.text(
+      `Week ${week} | Paid: ${formatMoney(d.paid)} | Arrears: ${formatMoney(d.arrears)}`,
+      10,y
+    );
     y+=8;
   });
 

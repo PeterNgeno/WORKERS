@@ -58,20 +58,19 @@ body.admin .admin-only { display:table-cell; }
 <button onclick="addWorker()">Add</button>
 </div>
 
-<!-- 🔥 EXPORT SECTION -->
+<!-- EXPORT -->
 <div class="section">
 <h3>Export / Share</h3>
-<button onclick="exportAll('Skilled')">Export Skilled</button>
-<button onclick="exportAll('Casual')">Export Casual</button>
+<button onclick="exportAll('Skilled')">Export Skilled PDF</button>
+<button onclick="exportAll('Casual')">Export Casual PDF</button>
 <input id="workerExportName" placeholder="Worker Name">
-<button onclick="exportSingle()">Export Single Worker</button>
 <input id="exportWeek" placeholder="Week (optional)">
+<button onclick="exportSingle()">Export Single PDF</button>
 </div>
 
 <div class="section">
 <h3>Skilled Labourers</h3>
-<table id="skilledTable">
-<thead>
+<table id="skilledTable"><thead>
 <tr>
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
@@ -79,15 +78,12 @@ body.admin .admin-only { display:table-cell; }
 <th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr>
-</thead>
-<tbody></tbody>
-</table>
+</thead><tbody></tbody></table>
 </div>
 
 <div class="section">
 <h3>Casual Labourers</h3>
-<table id="casualTable">
-<thead>
+<table id="casualTable"><thead>
 <tr>
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
@@ -95,144 +91,113 @@ body.admin .admin-only { display:table-cell; }
 <th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr>
-</thead>
-<tbody></tbody>
-</table>
+</thead><tbody></tbody></table>
 </div>
+
+<!-- PDF LIBRARY -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 
-const SHEET_API = "https://script.google.com/macros/s/AKfycbyIvyVn0ockKF4jqXEX_xUz7dWF3erWhFu2O5mmnFkD0uaYOrmcpn3gjmkmy8E1rEKYSw/exec";
+const { jsPDF } = window.jspdf;
+
+const SHEET_API = "YOUR_LINK_HERE";
 
 let workers = [];
 let currentWeek = 1;
 let maxWeek = 1;
-let project = {};
 
-/* ✅ ADMIN */
+/* ADMIN */
 function toggleAdmin(state){
   document.body.classList.toggle("admin", state);
 }
 
-/* ✅ PROJECT */
-function saveProject(){
-  project = {
-    venue: venue.value,
-    projectName: projectName.value,
-    startDate: startDate.value,
-    endDate: endDate.value
-  };
-  projectDisplay.innerText = `${project.projectName || 'N/A'} | ${project.venue || ''}`;
-}
-
-/* ✅ WEEK */
+/* WEEK */
 function setWeek(){
   currentWeek = parseInt(weekNumber.value) || 1;
   if(currentWeek > maxWeek) maxWeek = currentWeek;
-
   weekDisplay.innerText = "Current Week: " + currentWeek;
   generateWeekButtons();
   render();
 }
 
 function generateWeekButtons(){
-  weekButtons.innerHTML = "";
+  weekButtons.innerHTML="";
   for(let i=1;i<=maxWeek;i++){
     weekButtons.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
   }
 }
 
 function goToWeek(w){
-  currentWeek = w;
-  weekNumber.value = w;
-  weekDisplay.innerText = "Current Week: " + currentWeek;
+  currentWeek=w;
+  weekNumber.value=w;
+  weekDisplay.innerText="Current Week: "+w;
   render();
 }
 
-/* 🔥 ADD WORKER WITH VALIDATIONS */
+/* ADD WORKER */
 function addWorker(){
   let name = document.getElementById("name").value.trim();
   let id = document.getElementById("idNumber").value.trim();
 
-  if(!name){
-    alert("Enter name");
-    return;
-  }
+  if(!name){ alert("Enter name"); return; }
 
-  // ❌ PREVENT DUPLICATE IN SAME WEEK
-  let exists = workers.find(w => w.name === name && w.weeks[currentWeek]);
-  if(exists){
-    alert("Worker already exists in this week");
-    return;
-  }
-
-  // 🆔 ID VALIDATION (must start with same first letter as name)
   if(id && id[0].toLowerCase() !== name[0].toLowerCase()){
-    alert("ID must start with same initial as name");
+    alert("ID must match name initial");
     return;
   }
+
+  let exists = workers.find(w=>w.name===name && w.weeks[currentWeek]);
+  if(exists){ alert("Already exists this week"); return; }
 
   let w = {
     name,
-    number: number.value || "",
+    number:number.value||"",
     id,
-    type: type.value,
-    rate: parseFloat(rate.value) || 0,
-    weeks: {}
+    type:type.value,
+    rate:parseFloat(rate.value)||0,
+    weeks:{}
   };
 
   workers.push(w);
-
-  let wd = getWeekData(w, currentWeek);
-  saveToSheet(w, wd);
-
-  name.value = "";
-  number.value = "";
-  idNumber.value = "";
-  rate.value = "";
-
   render();
 }
 
-/* EXISTING LOGIC UNTOUCHED BELOW */
-
-function getWeekData(w, week){
+/* DATA */
+function getWeekData(w,week){
   if(!w.weeks[week]){
-    w.weeks[week] = { days:['','','','','','',''], paid:0, arrears:0 };
+    w.weeks[week]={days:['','','','','','',''],paid:0,arrears:0};
   }
   return w.weeks[week];
 }
 
+/* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';
 
   workers.forEach((w,i)=>{
-    if(!w.name) return;
+    let wd=getWeekData(w,currentWeek);
+    let total=0, daysWorked=0;
 
-    let wd = getWeekData(w,currentWeek);
-    let total = 0;
-    let daysWorked = 0;
-
-    let row = `<tr>
-    <td>${w.name}</td>
-    <td class='admin-only'>${w.number || ''}</td>
-    <td class='admin-only'>${w.id || ''}</td>
+    let row=`<tr><td>${w.name}</td>
+    <td class='admin-only'>${w.number}</td>
+    <td class='admin-only'>${w.id}</td>
     <td>${w.rate}</td>`;
 
     wd.days.forEach((d,di)=>{
-      d = d || "";
-      row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
-      if(d.toLowerCase()=='y'){ total+=w.rate; daysWorked+=1; }
-      if(d.toLowerCase()=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
+      row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
+      if((d||'').toLowerCase()=='y'){ total+=w.rate; daysWorked++; }
+      if((d||'').toLowerCase()=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
     });
 
-    let arrears = wd.arrears || 0;
-    let totalDue = total + arrears;
-    let balance = totalDue - (wd.paid || 0);
+    let arrears=wd.arrears||0;
+    let totalDue=total+arrears;
+    let balance=totalDue-wd.paid;
 
-    row += `<td>${daysWorked}</td><td>${total}</td><td>${arrears}</td>
-    <td>${totalDue}</td><td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
+    row+=`<td>${daysWorked}</td><td>${total}</td>
+    <td>${arrears}</td><td>${totalDue}</td>
+    <td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
     <td>${balance}</td></tr>`;
 
     if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
@@ -240,104 +205,91 @@ function render(){
   });
 }
 
+/* UPDATE */
 function updateDay(i,di,val){
-  let w = workers[i];
-  let wd = getWeekData(w,currentWeek);
-  wd.days[di]=val;
-  saveToSheet(w, wd);
+  getWeekData(workers[i],currentWeek).days[di]=val;
   render();
 }
 
 function updatePaid(i,val){
-  let w = workers[i];
-  let wd = getWeekData(w,currentWeek);
+  let w=workers[i];
+  let wd=getWeekData(w,currentWeek);
   wd.paid=parseFloat(val)||0;
   calculateArrears(i);
-  saveToSheet(w, wd);
   render();
 }
 
+/* 🔥 FIXED ARREARS (NEGATIVE ALLOWED) */
 function calculateArrears(i){
-  let w = workers[i];
-  let prevWeek = currentWeek-1;
+  let w=workers[i];
+  let prevWeek=currentWeek-1;
+
   if(prevWeek>0 && w.weeks[prevWeek]){
-    let prev = w.weeks[prevWeek];
-    let prevTotal = 0;
+    let prev=w.weeks[prevWeek];
+    let total=0;
+
     prev.days.forEach(d=>{
-      if((d||"").toLowerCase()=='y') prevTotal+=w.rate;
-      if((d||"").toLowerCase()=='y/n') prevTotal+=w.rate/2;
+      if((d||'').toLowerCase()=='y') total+=w.rate;
+      if((d||'').toLowerCase()=='y/n') total+=w.rate/2;
     });
-    let prevBalance = (prevTotal+prev.arrears)-prev.paid;
-    w.weeks[currentWeek].arrears = prevBalance>0?prevBalance:0;
+
+    let prevBalance=(total+prev.arrears)-prev.paid;
+
+    // ✅ KEEP NEGATIVE VALUE
+    w.weeks[currentWeek].arrears = prevBalance;
   }
 }
 
-/* 🔥 EXPORT FUNCTIONS */
+/* 🔥 PDF EXPORT */
 function exportAll(type){
-  let text = "Labour Report\n\n";
+  let doc=new jsPDF();
+  let y=10;
+
+  doc.setFillColor(30,58,138);
+  doc.rect(0,0,210,20,'F');
+  doc.setTextColor(255,255,255);
+  doc.text(type+" Labour Report",10,12);
+
+  doc.setTextColor(0,0,0);
+  y=30;
+
   workers.filter(w=>w.type===type).forEach(w=>{
-    text += formatWorker(w);
+    doc.text("Name: "+w.name,10,y); y+=6;
+
+    Object.keys(w.weeks).forEach(week=>{
+      let d=w.weeks[week];
+      doc.text(`Week ${week} | Paid: ${d.paid} | Arrears: ${d.arrears}`,10,y);
+      y+=6;
+    });
+
+    y+=4;
   });
-  download(text, type+"_report.txt");
+
+  doc.save(type+"_report.pdf");
 }
 
 function exportSingle(){
-  let name = workerExportName.value.trim();
-  let week = exportWeek.value;
+  let name=workerExportName.value.trim();
+  let w=workers.find(x=>x.name===name);
+  if(!w){ alert("Not found"); return; }
 
-  let w = workers.find(x=>x.name===name);
-  if(!w){ alert("Worker not found"); return; }
+  let doc=new jsPDF();
+  let y=20;
 
-  let text = formatWorker(w, week);
-  download(text, name+"_report.txt");
-}
+  doc.setFontSize(16);
+  doc.text("Worker Report",10,10);
 
-function formatWorker(w, week=null){
-  let text = `Name: ${w.name}\n`;
+  doc.text("Name: "+w.name,10,y); y+=10;
 
-  Object.keys(w.weeks).forEach(wk=>{
-    if(week && wk!=week) return;
-
-    let d = w.weeks[wk];
-    text += `Week ${wk} | Paid: ${d.paid} | Arrears: ${d.arrears}\n`;
+  Object.keys(w.weeks).forEach(week=>{
+    let d=w.weeks[week];
+    doc.text(`Week ${week} Paid: ${d.paid} Arrears: ${d.arrears}`,10,y);
+    y+=8;
   });
 
-  text += "\n";
-  return text;
-}
-
-function download(content, filename){
-  let blob = new Blob([content], {type:"text/plain"});
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
-}
-
-/* SAVE */
-function saveToSheet(worker, weekData){
-  fetch(SHEET_API,{
-    method:"POST",
-    mode:"no-cors",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      type:"weekly",
-      data:{
-        name:worker.name,
-        phone:worker.number,
-        id:worker.id,
-        type:worker.type,
-        rate:worker.rate,
-        week:currentWeek,
-        days:weekData.days,
-        arrears:weekData.arrears,
-        paid:weekData.paid
-      }
-    })
-  });
+  doc.save(name+".pdf");
 }
 
 </script>
-
 </body>
 </html>

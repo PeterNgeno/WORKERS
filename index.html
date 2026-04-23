@@ -239,7 +239,20 @@ function calculateArrears(i){
   }
 }
 
-/* 🔵 MAGAZINE HEADER EXPORT */
+/* 🔥 FIX: FORCE ARREARS UPDATE BEFORE EXPORT */
+function refreshAllArrears(){
+  workers.forEach((w,i)=>{
+    Object.keys(w.weeks).forEach((week)=>{
+      let wk = parseInt(week);
+      if(wk > 1){
+        currentWeek = wk;
+        calculateArrears(i);
+      }
+    });
+  });
+}
+
+/* HEADER */
 function drawHeader(doc, title){
   let v = venue.value || "";
   let p = projectName.value || "";
@@ -259,6 +272,8 @@ function drawHeader(doc, title){
 
 /* EXPORT ALL */
 function exportAll(type){
+  refreshAllArrears(); // 🔥 important
+
   let doc=new jsPDF();
   drawHeader(doc, type+" Labour Report");
 
@@ -284,6 +299,8 @@ function exportAll(type){
 
 /* EXPORT SINGLE */
 function exportSingle(){
+  refreshAllArrears(); // 🔥 important
+
   let name=workerExportName.value.trim();
   let w=workers.find(x=>x.name===name);
   if(!w){ alert("Not found"); return; }

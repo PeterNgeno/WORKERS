@@ -48,8 +48,8 @@ body.admin .admin-only { display:table-cell; }
 <div class="section">
 <h3>Add Worker</h3>
 <input id="name" placeholder="Name">
-<input id="number" placeholder="Phone" class="admin-only">
-<input id="idNumber" placeholder="ID" class="admin-only">
+<input id="number" placeholder="Phone">
+<input id="idNumber" placeholder="ID Number">
 <select id="type">
 <option value="Skilled">Skilled</option>
 <option value="Casual">Casual</option>
@@ -107,8 +107,19 @@ function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
+/* ✅ ADMIN PASSWORD */
 function toggleAdmin(state){
-  document.body.classList.toggle("admin", state);
+  if(state){
+    let pass = prompt("Enter Admin Password:");
+    if(pass === "@Adminpage1234"){
+      document.body.classList.add("admin");
+    } else {
+      alert("Wrong password");
+      document.querySelector("input[type=checkbox]").checked=false;
+    }
+  } else {
+    document.body.classList.remove("admin");
+  }
 }
 
 function saveProject(){
@@ -142,8 +153,25 @@ function goToWeek(w){
 function addWorker(){
   let name = document.getElementById("name").value.trim();
   let id = document.getElementById("idNumber").value.trim();
+  let phone = document.getElementById("number").value.trim() || "unknown";
 
   if(!name){ alert("Enter name"); return; }
+
+  /* ✅ PHONE UNIQUE CHECK */
+  let phoneExists = workers.find(w=>w.number===phone && phone!=="unknown");
+  if(phoneExists){
+    alert("Phone already used by another worker");
+    return;
+  }
+
+  /* ✅ ID MATCH CHECK ACROSS WEEKS */
+  let existingWorker = workers.find(w=>w.name===name);
+  if(existingWorker){
+    if(existingWorker.id && id && existingWorker.id !== id){
+      alert("ID must match the first registered ID for this worker");
+      return;
+    }
+  }
 
   if(id && id[0].toLowerCase() !== name[0].toLowerCase()){
     alert("ID must match name initial");
@@ -155,7 +183,7 @@ function addWorker(){
 
   let w = {
     name,
-    number:number.value||"",
+    number: phone,
     id,
     type:type.value,
     rate:parseFloat(rate.value)||0,
@@ -173,7 +201,6 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* ✅ FULL RESTORED RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';

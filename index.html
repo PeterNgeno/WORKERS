@@ -2,7 +2,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Labour Management System</title><style>
+<title>Labour Management System</title>
+
+<style>
 body { font-family: Arial; background:#0b1f3a; color:white; padding:20px; }
 h1 { text-align:center; }
 .section { margin-top:25px; }
@@ -10,11 +12,17 @@ table { width:100%; border-collapse: collapse; margin-top:10px; }
 th, td { border:1px solid #fff; padding:6px; text-align:center; }
 th { background:#1e3a8a; }
 input, select { padding:5px; margin:3px; }
-button { padding:8px; background:#2563eb; color:white; border:none; cursor:pointer; }
+button { padding:8px; background:#2563eb; color:white; border:none; cursor:pointer; margin:2px;}
 .header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
 .admin-only { display:none; }
-</style></head>
-<body><h1>Labour Management System</h1><label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
+</style>
+
+</head>
+<body>
+
+<h1>Labour Management System</h1>
+
+<label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
 
 <div class="section header-box">
 <h3>Project</h3>
@@ -24,12 +32,19 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <input id="endDate" type="date">
 <button onclick="saveProject()">Save</button>
 <p id="projectDisplay"></p>
-</div><div class="section">
+</div>
+
+<div class="section">
 <h3>Week Control</h3>
 <input id="weekNumber" type="number" placeholder="Week Number">
 <button onclick="setWeek()">Set Week</button>
 <p id="weekDisplay"></p>
-</div><div class="section">
+
+<!-- 🔥 QUICK WEEK BUTTONS -->
+<div id="weekButtons"></div>
+</div>
+
+<div class="section">
 <h3>Add Worker</h3>
 <input id="name" placeholder="Name">
 <input id="number" placeholder="Phone" class="admin-only">
@@ -40,7 +55,9 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 </select>
 <input id="rate" placeholder="Rate">
 <button onclick="addWorker()">Add</button>
-</div><div class="section">
+</div>
+
+<div class="section">
 <h3>Skilled Labourers</h3>
 <table id="skilledTable"><thead>
 <tr>
@@ -49,7 +66,9 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr></thead><tbody></tbody></table>
-</div><div class="section">
+</div>
+
+<div class="section">
 <h3>Casual Labourers</h3>
 <table id="casualTable"><thead>
 <tr>
@@ -58,7 +77,10 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr></thead><tbody></tbody></table>
-</div><script>
+</div>
+
+<script>
+
 const SHEET_API = "https://script.google.com/macros/s/AKfycbyIvyVn0ockKF4jqXEX_xUz7dWF3erWhFu2O5mmnFkD0uaYOrmcpn3gjmkmy8E1rEKYSw/exec";
 
 let workers = [];
@@ -86,6 +108,24 @@ function saveProject(){
 function setWeek(){
   currentWeek = parseInt(weekNumber.value);
   weekDisplay.innerText = "Current Week: " + currentWeek;
+  generateWeekButtons();
+  render();
+}
+
+function generateWeekButtons(){
+  let container = document.getElementById("weekButtons");
+  container.innerHTML = "";
+
+  for(let i=1;i<=currentWeek;i++){
+    container.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
+  }
+}
+
+function goToWeek(w){
+  currentWeek = w;
+  weekNumber.value = w;
+  weekDisplay.innerText = "Current Week: " + currentWeek;
+  render();
 }
 
 function addWorker(){
@@ -148,13 +188,21 @@ function render(){
 }
 
 function updateDay(i,di,val){
-  workers[i].weeks[currentWeek].days[di]=val;
+  let wd = getWeekData(workers[i], currentWeek);
+  wd.days[di]=val;
   render();
 }
 
 function updatePaid(i,val){
-  workers[i].weeks[currentWeek].paid=parseFloat(val)||0;
+  let w = workers[i];
+  let wd = getWeekData(w,currentWeek);
+
+  wd.paid=parseFloat(val)||0;
+
   calculateArrears(i);
+
+  saveToSheet(w, wd); // ✅ SAVE
+
   render();
 }
 
@@ -173,5 +221,29 @@ function calculateArrears(i){
   }
 }
 
-</script></body>
-          </html>
+function saveToSheet(worker, weekData){
+  fetch(SHEET_API, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "weekly",
+      data: {
+        project: project.projectName || "",
+        venue: project.venue || "",
+        name: worker.name,
+        phone: worker.number,
+        id: worker.id,
+        type: worker.type,
+        rate: worker.rate,
+        week: currentWeek,
+        days: weekData.days,
+        arrears: weekData.arrears,
+        paid: weekData.paid
+      }
+    })
+  });
+}
+
+</script>
+
+</body>
+</html>

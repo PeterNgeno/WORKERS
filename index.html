@@ -40,7 +40,6 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <button onclick="setWeek()">Set Week</button>
 <p id="weekDisplay"></p>
 
-<!-- 🔥 QUICK WEEK BUTTONS -->
 <div id="weekButtons"></div>
 </div>
 
@@ -64,6 +63,7 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr></thead><tbody></tbody></table>
 </div>
@@ -75,6 +75,7 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr></thead><tbody></tbody></table>
 </div>
@@ -86,6 +87,7 @@ const SHEET_API = "https://script.google.com/macros/s/AKfycbyIvyVn0ockKF4jqXEX_x
 let workers = [];
 let isAdmin = false;
 let currentWeek = 1;
+let maxWeek = 1;
 let project = {};
 
 function toggleAdmin(state){
@@ -107,6 +109,8 @@ function saveProject(){
 
 function setWeek(){
   currentWeek = parseInt(weekNumber.value);
+  if(currentWeek > maxWeek) maxWeek = currentWeek;
+
   weekDisplay.innerText = "Current Week: " + currentWeek;
   generateWeekButtons();
   render();
@@ -116,7 +120,7 @@ function generateWeekButtons(){
   let container = document.getElementById("weekButtons");
   container.innerHTML = "";
 
-  for(let i=1;i<=currentWeek;i++){
+  for(let i=1;i<=maxWeek;i++){
     container.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
   }
 }
@@ -158,6 +162,7 @@ function render(){
   workers.forEach((w,i)=>{
     let wd = getWeekData(w,currentWeek);
     let total = 0;
+    let daysWorked = 0;
 
     let row = `<tr>
     <td>${w.name}</td>
@@ -167,15 +172,17 @@ function render(){
 
     wd.days.forEach((d,di)=>{
       row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
-      if(d.toLowerCase()=='y') total+=w.rate;
-      if(d=='Y/N'||d=='y/n') total+=w.rate/2;
+
+      if(d.toLowerCase()=='y'){ total+=w.rate; daysWorked+=1; }
+      if(d=='Y/N'||d=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
     });
 
     let arrears = wd.arrears;
     let totalDue = total + arrears;
     let balance = totalDue - wd.paid;
 
-    row += `<td>${total}</td>
+    row += `<td>${daysWorked}</td>
+    <td>${total}</td>
     <td>${arrears}</td>
     <td>${totalDue}</td>
     <td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
@@ -201,7 +208,7 @@ function updatePaid(i,val){
 
   calculateArrears(i);
 
-  saveToSheet(w, wd); // ✅ SAVE
+  saveToSheet(w, wd);
 
   render();
 }
@@ -246,4 +253,4 @@ function saveToSheet(worker, weekData){
 </script>
 
 </body>
-</html>
+  </html>

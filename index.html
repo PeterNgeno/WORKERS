@@ -173,7 +173,29 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* HEADER */
+/* 🔥 RESTORED RENDER FUNCTION */
+function render(){
+  skilledTable.querySelector('tbody').innerHTML='';
+  casualTable.querySelector('tbody').innerHTML='';
+
+  workers.forEach((w,i)=>{
+    let wd=getWeekData(w,currentWeek);
+
+    let row=`<tr>
+    <td>${w.name}</td>
+    <td class='admin-only'>${w.number}</td>
+    <td class='admin-only'>${w.id}</td>
+    <td>${formatMoney(w.rate)}</td>
+    <td colspan="13">Worker Added</td>
+    </tr>`;
+
+    if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
+    else casualTable.querySelector('tbody').innerHTML+=row;
+  });
+}
+
+/* HEADER + EXPORT (UNCHANGED) */
+
 function drawHeader(doc, title){
   let v = venue.value || "";
   let p = projectName.value || "";
@@ -191,7 +213,6 @@ function drawHeader(doc, title){
   doc.setTextColor(0,0,0);
 }
 
-/* 🔥 CALCULATE BALANCE FOR PDF */
 function getWeekBalance(w, week){
   let wd = w.weeks[week];
   if(!wd) return 0;
@@ -206,7 +227,6 @@ function getWeekBalance(w, week){
   return total - (wd.paid || 0);
 }
 
-/* EXPORT ALL */
 function exportAll(type){
   let doc=new jsPDF();
   drawHeader(doc, type+" Labour Report");
@@ -233,7 +253,6 @@ function exportAll(type){
   doc.save(type+"_report.pdf");
 }
 
-/* EXPORT SINGLE */
 function exportSingle(){
   let name=workerExportName.value.trim();
   let w=workers.find(x=>x.name===name);

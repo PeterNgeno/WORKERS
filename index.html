@@ -103,24 +103,20 @@ let workers = [];
 let currentWeek = 1;
 let maxWeek = 1;
 
-/* FORMAT MONEY */
 function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
-/* ADMIN */
 function toggleAdmin(state){
   document.body.classList.toggle("admin", state);
 }
 
-/* PROJECT */
 function saveProject(){
   let v = venue.value;
   let p = projectName.value;
   projectDisplay.innerText = "Venue: " + v + " | Project: " + p;
 }
 
-/* WEEK */
 function setWeek(){
   currentWeek = parseInt(weekNumber.value) || 1;
   if(currentWeek > maxWeek) maxWeek = currentWeek;
@@ -143,7 +139,6 @@ function goToWeek(w){
   render();
 }
 
-/* ADD WORKER */
 function addWorker(){
   let name = document.getElementById("name").value.trim();
   let id = document.getElementById("idNumber").value.trim();
@@ -171,7 +166,6 @@ function addWorker(){
   render();
 }
 
-/* DATA */
 function getWeekData(w,week){
   if(!w.weeks[week]){
     w.weeks[week]={days:['','','','','','',''],paid:0,arrears:0};
@@ -179,7 +173,6 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';
@@ -215,7 +208,6 @@ function render(){
   });
 }
 
-/* UPDATE */
 function updateDay(i,di,val){
   getWeekData(workers[i],currentWeek).days[di]=val;
   render();
@@ -229,7 +221,6 @@ function updatePaid(i,val){
   render();
 }
 
-/* ARREARS */
 function calculateArrears(i){
   let w=workers[i];
   let prevWeek=currentWeek-1;
@@ -248,19 +239,30 @@ function calculateArrears(i){
   }
 }
 
+/* 🔵 MAGAZINE HEADER EXPORT */
+function drawHeader(doc, title){
+  let v = venue.value || "";
+  let p = projectName.value || "";
+
+  doc.setFillColor(30,58,138);
+  doc.rect(0,0,210,20,'F');
+
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(14);
+  doc.text(title,10,12);
+
+  doc.setFontSize(10);
+  doc.text(`Venue: ${v} | Project: ${p}`,10,17);
+
+  doc.setTextColor(0,0,0);
+}
+
 /* EXPORT ALL */
 function exportAll(type){
   let doc=new jsPDF();
-  let y=20;
+  drawHeader(doc, type+" Labour Report");
 
-  doc.setFontSize(16);
-  doc.text(type+" Labour Report",10,10);
-
-  doc.setFontSize(11);
-  doc.text("Venue: "+(venue.value||""),10,16);
-  doc.text("Project: "+(projectName.value||""),10,22);
-
-  y=30;
+  let y=30;
 
   workers.filter(w=>w.type===type).forEach(w=>{
     doc.text("Name: "+w.name,10,y); y+=6;
@@ -287,14 +289,9 @@ function exportSingle(){
   if(!w){ alert("Not found"); return; }
 
   let doc=new jsPDF();
+  drawHeader(doc, "Worker Report");
+
   let y=30;
-
-  doc.setFontSize(16);
-  doc.text("Worker Report",10,10);
-
-  doc.setFontSize(11);
-  doc.text("Venue: "+(venue.value||""),10,16);
-  doc.text("Project: "+(projectName.value||""),10,22);
 
   doc.text("Name: "+w.name,10,y); y+=10;
 

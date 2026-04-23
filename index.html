@@ -173,85 +173,6 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-function render(){
-  skilledTable.querySelector('tbody').innerHTML='';
-  casualTable.querySelector('tbody').innerHTML='';
-
-  workers.forEach((w,i)=>{
-    let wd=getWeekData(w,currentWeek);
-    let total=0, daysWorked=0;
-
-    let row=`<tr><td>${w.name}</td>
-    <td class='admin-only'>${w.number}</td>
-    <td class='admin-only'>${w.id}</td>
-    <td>${formatMoney(w.rate)}</td>`;
-
-    wd.days.forEach((d,di)=>{
-      row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
-      if((d||'').toLowerCase()=='y'){ total+=w.rate; daysWorked++; }
-      if((d||'').toLowerCase()=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
-    });
-
-    let arrears=wd.arrears||0;
-    let totalDue=total+arrears;
-    let balance=totalDue-wd.paid;
-
-    row+=`<td>${daysWorked}</td>
-    <td>${formatMoney(total)}</td>
-    <td>${formatMoney(arrears)}</td>
-    <td>${formatMoney(totalDue)}</td>
-    <td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
-    <td>${formatMoney(balance)}</td></tr>`;
-
-    if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
-    else casualTable.querySelector('tbody').innerHTML+=row;
-  });
-}
-
-function updateDay(i,di,val){
-  getWeekData(workers[i],currentWeek).days[di]=val;
-  render();
-}
-
-function updatePaid(i,val){
-  let w=workers[i];
-  let wd=getWeekData(w,currentWeek);
-  wd.paid=parseFloat(val)||0;
-  calculateArrears(i);
-  render();
-}
-
-function calculateArrears(i){
-  let w=workers[i];
-  let prevWeek=currentWeek-1;
-
-  if(prevWeek>0 && w.weeks[prevWeek]){
-    let prev=w.weeks[prevWeek];
-    let total=0;
-
-    prev.days.forEach(d=>{
-      if((d||'').toLowerCase()=='y') total+=w.rate;
-      if((d||'').toLowerCase()=='y/n') total+=w.rate/2;
-    });
-
-    let prevBalance=(total+prev.arrears)-prev.paid;
-    w.weeks[currentWeek].arrears = prevBalance;
-  }
-}
-
-/* 🔥 FIX: FORCE ARREARS UPDATE BEFORE EXPORT */
-function refreshAllArrears(){
-  workers.forEach((w,i)=>{
-    Object.keys(w.weeks).forEach((week)=>{
-      let wk = parseInt(week);
-      if(wk > 1){
-        currentWeek = wk;
-        calculateArrears(i);
-      }
-    });
-  });
-}
-
 /* HEADER */
 function drawHeader(doc, title){
   let v = venue.value || "";
@@ -270,10 +191,23 @@ function drawHeader(doc, title){
   doc.setTextColor(0,0,0);
 }
 
+/* 🔥 CALCULATE BALANCE FOR PDF */
+function getWeekBalance(w, week){
+  let wd = w.weeks[week];
+  if(!wd) return 0;
+
+  let total = 0;
+
+  wd.days.forEach(d=>{
+    if((d||'').toLowerCase()=='y') total+=w.rate;
+    if((d||'').toLowerCase()=='y/n') total+=w.rate/2;
+  });
+
+  return total - (wd.paid || 0);
+}
+
 /* EXPORT ALL */
 function exportAll(type){
-  refreshAllArrears(); // 🔥 important
-
   let doc=new jsPDF();
   drawHeader(doc, type+" Labour Report");
 
@@ -284,8 +218,10 @@ function exportAll(type){
 
     Object.keys(w.weeks).forEach(week=>{
       let d=w.weeks[week];
+      let balance = getWeekBalance(w, week);
+
       doc.text(
-        `Week ${week} | Paid: ${formatMoney(d.paid)} | Arrears: ${formatMoney(d.arrears)}`,
+        `Week ${week} | Paid: ${formatMoney(d.paid)} | Balance: ${formatMoney(balance)}`,
         10,y
       );
       y+=6;
@@ -299,8 +235,6 @@ function exportAll(type){
 
 /* EXPORT SINGLE */
 function exportSingle(){
-  refreshAllArrears(); // 🔥 important
-
   let name=workerExportName.value.trim();
   let w=workers.find(x=>x.name===name);
   if(!w){ alert("Not found"); return; }
@@ -314,8 +248,10 @@ function exportSingle(){
 
   Object.keys(w.weeks).forEach(week=>{
     let d=w.weeks[week];
+    let balance = getWeekBalance(w, week);
+
     doc.text(
-      `Week ${week} | Paid: ${formatMoney(d.paid)} | Arrears: ${formatMoney(d.arrears)}`,
+      `Week ${week} | Paid: ${formatMoney(d.paid)} | Balance: ${formatMoney(balance)}`,
       10,y
     );
     y+=8;

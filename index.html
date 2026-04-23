@@ -173,20 +173,41 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* 🔥 RESTORED RENDER FUNCTION */
+/* ✅ FULL RESTORED RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';
 
   workers.forEach((w,i)=>{
     let wd=getWeekData(w,currentWeek);
+    let total=0, daysWorked=0;
 
     let row=`<tr>
     <td>${w.name}</td>
     <td class='admin-only'>${w.number}</td>
     <td class='admin-only'>${w.id}</td>
-    <td>${formatMoney(w.rate)}</td>
-    <td colspan="13">Worker Added</td>
+    <td>${formatMoney(w.rate)}</td>`;
+
+    wd.days.forEach((d,di)=>{
+      row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
+
+      let val=(d||'').toLowerCase();
+
+      if(val=='y'){ total+=w.rate; daysWorked++; }
+      else if(val=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
+    });
+
+    let arrears=wd.arrears||0;
+    let totalDue=total+arrears;
+    let balance=totalDue-wd.paid;
+
+    row+=`
+    <td>${daysWorked}</td>
+    <td>${formatMoney(total)}</td>
+    <td>${formatMoney(arrears)}</td>
+    <td>${formatMoney(totalDue)}</td>
+    <td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
+    <td>${formatMoney(balance)}</td>
     </tr>`;
 
     if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
@@ -194,7 +215,18 @@ function render(){
   });
 }
 
-/* HEADER + EXPORT (UNCHANGED) */
+function updateDay(i,di,val){
+  getWeekData(workers[i],currentWeek).days[di]=val;
+  render();
+}
+
+function updatePaid(i,val){
+  let wd=getWeekData(workers[i],currentWeek);
+  wd.paid=parseFloat(val)||0;
+  render();
+}
+
+/* EXPORT (UNCHANGED) */
 
 function drawHeader(doc, title){
   let v = venue.value || "";

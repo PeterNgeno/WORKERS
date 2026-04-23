@@ -15,10 +15,8 @@ input, select { padding:5px; margin:3px; }
 button { padding:8px; background:#2563eb; color:white; border:none; cursor:pointer; margin:2px;}
 .header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
 
-/* ✅ FIXED ADMIN COLUMN HANDLING */
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
-
 </style>
 </head>
 
@@ -131,14 +129,28 @@ function goToWeek(w){
 }
 
 function addWorker(){
+  let workerName = document.getElementById("name").value.trim();
+
+  if(!workerName){
+    alert("Enter worker name");
+    return;
+  }
+
   workers.push({
-    name: name.value,
-    number: number.value,
-    id: idNumber.value,
-    type: type.value,
-    rate: parseFloat(rate.value),
+    name: workerName,
+    number: document.getElementById("number").value || "",
+    id: document.getElementById("idNumber").value || "",
+    type: document.getElementById("type").value,
+    rate: parseFloat(document.getElementById("rate").value) || 0,
     weeks: {}
   });
+
+  // clear inputs after adding
+  document.getElementById("name").value = "";
+  document.getElementById("number").value = "";
+  document.getElementById("idNumber").value = "";
+  document.getElementById("rate").value = "";
+
   render();
 }
 
@@ -163,10 +175,10 @@ function render(){
     let daysWorked = 0;
 
     let row = `<tr>
-    <td>${w.name || ''}</td>
-    <td class='admin-only'>${w.number || ''}</td>
-    <td class='admin-only'>${w.id || ''}</td>
-    <td>${w.rate || 0}</td>`;
+    <td>${w.name}</td>
+    <td class='admin-only'>${w.number}</td>
+    <td class='admin-only'>${w.id}</td>
+    <td>${w.rate}</td>`;
 
     wd.days.forEach((d,di)=>{
       d = d || "";
@@ -184,72 +196,4 @@ function render(){
     <td>${total}</td>
     <td>${arrears}</td>
     <td>${totalDue}</td>
-    <td><input value="${wd.paid || 0}" onchange="updatePaid(${i},this.value)"></td>
-    <td>${balance}</td>
-    </tr>`;
-
-    if(w.type=='Skilled') skilledTable.querySelector('tbody').innerHTML+=row;
-    else casualTable.querySelector('tbody').innerHTML+=row;
-  });
-}
-
-function updateDay(i,di,val){
-  let wd = getWeekData(workers[i], currentWeek);
-  wd.days[di]=val;
-  render();
-}
-
-function updatePaid(i,val){
-  let w = workers[i];
-  let wd = getWeekData(w,currentWeek);
-
-  wd.paid=parseFloat(val)||0;
-
-  calculateArrears(i);
-
-  saveToSheet(w, wd);
-
-  render();
-}
-
-function calculateArrears(i){
-  let w = workers[i];
-  let prevWeek = currentWeek -1;
-  if(prevWeek>0 && w.weeks[prevWeek]){
-    let prev = w.weeks[prevWeek];
-    let prevTotal = 0;
-    prev.days.forEach(d=>{
-      if(d.toLowerCase()=='y') prevTotal+=w.rate;
-      if(d=='Y/N'||d=='y/n') prevTotal+=w.rate/2;
-    });
-    let prevBalance = (prevTotal + prev.arrears) - prev.paid;
-    w.weeks[currentWeek].arrears = prevBalance>0 ? prevBalance : 0;
-  }
-}
-
-function saveToSheet(worker, weekData){
-  fetch(SHEET_API, {
-    method: "POST",
-    body: JSON.stringify({
-      type: "weekly",
-      data: {
-        project: project.projectName || "",
-        venue: project.venue || "",
-        name: worker.name,
-        phone: worker.number,
-        id: worker.id,
-        type: worker.type,
-        rate: worker.rate,
-        week: currentWeek,
-        days: weekData.days,
-        arrears: weekData.arrears,
-        paid: weekData.paid
-      }
-    })
-  });
-}
-
-</script>
-
-</body>
-</html>
+    <td><input value="${wd.paid || 0}" onchange="updatePaid(${i},this.value)"></td

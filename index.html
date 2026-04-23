@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -59,26 +60,34 @@ body.admin .admin-only { display:table-cell; }
 
 <div class="section">
 <h3>Skilled Labourers</h3>
-<table id="skilledTable"><thead>
+<table id="skilledTable">
+<thead>
 <tr>
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
-</tr></thead><tbody></tbody></table>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 </div>
 
 <div class="section">
 <h3>Casual Labourers</h3>
-<table id="casualTable"><thead>
+<table id="casualTable">
+<thead>
 <tr>
 <th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th>
 <th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
-</tr></thead><tbody></tbody></table>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
 </div>
 
 <script>
@@ -96,19 +105,23 @@ function toggleAdmin(state){
 
 function saveProject(){
   project = {
-    venue: venue.value,
-    projectName: projectName.value,
-    startDate: startDate.value,
-    endDate: endDate.value
+    venue: document.getElementById("venue").value,
+    projectName: document.getElementById("projectName").value,
+    startDate: document.getElementById("startDate").value,
+    endDate: document.getElementById("endDate").value
   };
-  projectDisplay.innerText = `${project.projectName || 'N/A'} | ${project.venue}`;
+  document.getElementById("projectDisplay").innerText =
+    `${project.projectName || 'N/A'} | ${project.venue || ''}`;
 }
 
 function setWeek(){
-  currentWeek = parseInt(weekNumber.value);
+  currentWeek = parseInt(document.getElementById("weekNumber").value) || 1;
+
   if(currentWeek > maxWeek) maxWeek = currentWeek;
 
-  weekDisplay.innerText = "Current Week: " + currentWeek;
+  document.getElementById("weekDisplay").innerText =
+    "Current Week: " + currentWeek;
+
   generateWeekButtons();
   render();
 }
@@ -116,6 +129,7 @@ function setWeek(){
 function generateWeekButtons(){
   let container = document.getElementById("weekButtons");
   container.innerHTML = "";
+
   for(let i=1;i<=maxWeek;i++){
     container.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
   }
@@ -123,8 +137,10 @@ function generateWeekButtons(){
 
 function goToWeek(w){
   currentWeek = w;
-  weekNumber.value = w;
-  weekDisplay.innerText = "Current Week: " + currentWeek;
+  document.getElementById("weekNumber").value = w;
+  document.getElementById("weekDisplay").innerText =
+    "Current Week: " + currentWeek;
+
   render();
 }
 
@@ -136,16 +152,20 @@ function addWorker(){
     return;
   }
 
-  workers.push({
+  let newWorker = {
     name: workerName,
     number: document.getElementById("number").value || "",
     id: document.getElementById("idNumber").value || "",
     type: document.getElementById("type").value,
     rate: parseFloat(document.getElementById("rate").value) || 0,
     weeks: {}
-  });
+  };
 
-  // clear inputs after adding
+  workers.push(newWorker);
+
+  let wd = getWeekData(newWorker, currentWeek);
+  saveToSheet(newWorker, wd);
+
   document.getElementById("name").value = "";
   document.getElementById("number").value = "";
   document.getElementById("idNumber").value = "";
@@ -166,26 +186,28 @@ function getWeekData(w, week){
 }
 
 function render(){
-  skilledTable.querySelector('tbody').innerHTML='';
-  casualTable.querySelector('tbody').innerHTML='';
+  document.querySelector('#skilledTable tbody').innerHTML='';
+  document.querySelector('#casualTable tbody').innerHTML='';
 
   workers.forEach((w,i)=>{
+    if(!w.name) return;
+
     let wd = getWeekData(w,currentWeek);
     let total = 0;
     let daysWorked = 0;
 
     let row = `<tr>
     <td>${w.name}</td>
-    <td class='admin-only'>${w.number}</td>
-    <td class='admin-only'>${w.id}</td>
-    <td>${w.rate}</td>`;
+    <td class='admin-only'>${w.number || ''}</td>
+    <td class='admin-only'>${w.id || ''}</td>
+    <td>${w.rate || 0}</td>`;
 
     wd.days.forEach((d,di)=>{
       d = d || "";
       row += `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
 
       if(d.toLowerCase()=='y'){ total+=w.rate; daysWorked+=1; }
-      if(d=='Y/N'||d=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
+      if(d.toLowerCase()=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
     });
 
     let arrears = wd.arrears || 0;
@@ -196,4 +218,88 @@ function render(){
     <td>${total}</td>
     <td>${arrears}</td>
     <td>${totalDue}</td>
-    <td><input value="${wd.paid || 0}" onchange="updatePaid(${i},this.value)"></td
+    <td><input value="${wd.paid || 0}" onchange="updatePaid(${i},this.value)"></td>
+    <td>${balance}</td>
+    </tr>`;
+
+    if(w.type=='Skilled'){
+      document.querySelector('#skilledTable tbody').innerHTML += row;
+    } else {
+      document.querySelector('#casualTable tbody').innerHTML += row;
+    }
+  });
+}
+
+function updateDay(i,di,val){
+  let w = workers[i];
+  let wd = getWeekData(w, currentWeek);
+
+  wd.days[di] = val;
+
+  saveToSheet(w, wd);
+
+  render();
+}
+
+function updatePaid(i,val){
+  let w = workers[i];
+  let wd = getWeekData(w,currentWeek);
+
+  wd.paid = parseFloat(val) || 0;
+
+  calculateArrears(i);
+  saveToSheet(w, wd);
+
+  render();
+}
+
+function calculateArrears(i){
+  let w = workers[i];
+  let prevWeek = currentWeek -1;
+
+  if(prevWeek>0 && w.weeks[prevWeek]){
+    let prev = w.weeks[prevWeek];
+    let prevTotal = 0;
+
+    prev.days.forEach(d=>{
+      if((d||"").toLowerCase()=='y') prevTotal+=w.rate;
+      if((d||"").toLowerCase()=='y/n') prevTotal+=w.rate/2;
+    });
+
+    let prevBalance = (prevTotal + prev.arrears) - prev.paid;
+    w.weeks[currentWeek].arrears = prevBalance>0 ? prevBalance : 0;
+  }
+}
+
+function saveToSheet(worker, weekData){
+  fetch(SHEET_API, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      type: "weekly",
+      data: {
+        project: project.projectName || "",
+        venue: project.venue || "",
+        name: worker.name || "",
+        phone: worker.number || "",
+        id: worker.id || "",
+        type: worker.type || "",
+        rate: worker.rate || 0,
+        week: currentWeek,
+        days: weekData.days || [],
+        arrears: weekData.arrears || 0,
+        paid: weekData.paid || 0
+      }
+    })
+  }).catch(err=>{
+    console.log("Save error:", err);
+  });
+}
+
+</script>
+
+</body>
+</html>

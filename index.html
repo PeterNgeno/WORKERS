@@ -88,7 +88,8 @@ body.admin .admin-only { display:table-cell; }
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th>
-<th>Week Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
+<th>Week Total</th>
+<th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th>
 </tr>
 </thead><tbody></tbody></table>
 </div>
@@ -99,8 +100,8 @@ body.admin .admin-only { display:table-cell; }
 
 const { jsPDF } = window.jspdf;
 
-/* ✅ YOUR GOOGLE SCRIPT */
-const API_URL = "https://script.google.com/macros/s/AKfycbzcb1KY4spIR2xsBdyPOJKyOnG3zlH1K3vc6YAhhLwOjsTkdKsmKQQ6YoZuLbgQYB2O/exec";
+/* ✅ UPDATED API */
+const API_URL = "https://script.google.com/macros/s/AKfycbxBj_lZEzYJ5csr4FZ94Nm2PocxPWOy1LrL2EMrZZvZuBsk5GMRX6eoxrUvP08pYj5zkw/exec";
 
 let workers = [];
 let currentWeek = 1;
@@ -124,7 +125,7 @@ function toggleAdmin(state){
   }
 }
 
-/* ✅ LOAD DATA FROM GOOGLE SHEET */
+/* LOAD */
 async function loadFromSheet(){
   let res = await fetch(API_URL);
   let data = await res.json();
@@ -158,22 +159,30 @@ async function loadFromSheet(){
 
 window.onload = loadFromSheet;
 
-/* ✅ SAVE TO GOOGLE SHEET */
+/* ✅ SAVE FIXED */
 async function saveToSheet(worker, wd){
-  await fetch(API_URL,{
-    method:"POST",
-    body: JSON.stringify({
-      name: worker.name,
-      phone: worker.number,
-      id: worker.id,
-      type: worker.type,
-      rate: worker.rate,
-      week: currentWeek,
-      days: wd.days.join(","),
-      paid: wd.paid,
-      arrears: wd.arrears
-    })
-  });
+  try{
+    await fetch(API_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body: JSON.stringify({
+        name: worker.name,
+        phone: worker.number,
+        id: worker.id,
+        type: worker.type,
+        rate: worker.rate,
+        week: currentWeek,
+        days: wd.days.join(","),
+        paid: wd.paid,
+        arrears: wd.arrears
+      })
+    });
+  }catch(e){
+    console.error(e);
+  }
 }
 
 function saveProject(){
@@ -308,7 +317,7 @@ function updatePaid(i,val){
   render();
 }
 
-/* EXPORT UNCHANGED BELOW */
+/* EXPORT unchanged */
 function drawHeader(doc, title){
   let v = venue.value || "";
   let p = projectName.value || "";

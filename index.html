@@ -107,7 +107,6 @@ function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
-/* ✅ ADMIN PASSWORD */
 function toggleAdmin(state){
   if(state){
     let pass = prompt("Enter Admin Password:");
@@ -157,25 +156,20 @@ function addWorker(){
 
   if(!name){ alert("Enter name"); return; }
 
-  /* ✅ PHONE UNIQUE CHECK */
   let phoneExists = workers.find(w=>w.number===phone && phone!=="unknown");
   if(phoneExists){
     alert("Phone already used by another worker");
     return;
   }
 
-  /* ✅ ID MATCH CHECK ACROSS WEEKS */
   let existingWorker = workers.find(w=>w.name===name);
+
+  /* ✅ ONLY enforce ID match if worker already exists */
   if(existingWorker){
     if(existingWorker.id && id && existingWorker.id !== id){
       alert("ID must match the first registered ID for this worker");
       return;
     }
-  }
-
-  if(id && id[0].toLowerCase() !== name[0].toLowerCase()){
-    alert("ID must match name initial");
-    return;
   }
 
   let exists = workers.find(w=>w.name===name && w.weeks[currentWeek]);
@@ -184,7 +178,7 @@ function addWorker(){
   let w = {
     name,
     number: phone,
-    id,
+    id: existingWorker ? existingWorker.id : id,
     type:type.value,
     rate:parseFloat(rate.value)||0,
     weeks:{}

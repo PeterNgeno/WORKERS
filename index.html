@@ -99,6 +99,9 @@ body.admin .admin-only { display:table-cell; }
 
 const { jsPDF } = window.jspdf;
 
+/* ✅ YOUR GOOGLE SCRIPT */
+const API_URL = "https://script.google.com/macros/s/AKfycbzcb1KY4spIR2xsBdyPOJKyOnG3zlH1K3vc6YAhhLwOjsTkdKsmKQQ6YoZuLbgQYB2O/exec";
+
 let workers = [];
 let currentWeek = 1;
 let maxWeek = 1;
@@ -119,6 +122,58 @@ function toggleAdmin(state){
   } else {
     document.body.classList.remove("admin");
   }
+}
+
+/* ✅ LOAD DATA FROM GOOGLE SHEET */
+async function loadFromSheet(){
+  let res = await fetch(API_URL);
+  let data = await res.json();
+
+  workers = [];
+
+  data.forEach(row=>{
+    let w = workers.find(x=>x.name===row.Name);
+
+    if(!w){
+      w = {
+        name: row.Name,
+        number: row.Phone,
+        id: row.ID,
+        type: row.Type,
+        rate: parseFloat(row.Rate),
+        weeks:{}
+      };
+      workers.push(w);
+    }
+
+    w.weeks[row.Week] = {
+      days: row.Days ? row.Days.split(",") : ['','','','','','',''],
+      paid: parseFloat(row.Paid)||0,
+      arrears: parseFloat(row.Arrears)||0
+    };
+  });
+
+  render();
+}
+
+window.onload = loadFromSheet;
+
+/* ✅ SAVE TO GOOGLE SHEET */
+async function saveToSheet(worker, wd){
+  await fetch(API_URL,{
+    method:"POST",
+    body: JSON.stringify({
+      name: worker.name,
+      phone: worker.number,
+      id: worker.id,
+      type: worker.type,
+      rate: worker.rate,
+      week: currentWeek,
+      days: wd.days.join(","),
+      paid: wd.paid,
+      arrears: wd.arrears
+    })
+  });
 }
 
 function saveProject(){
@@ -164,7 +219,6 @@ function addWorker(){
 
   let existingWorker = workers.find(w=>w.name===name);
 
-  /* ✅ ONLY enforce ID match if worker already exists */
   if(existingWorker){
     if(existingWorker.id && id && existingWorker.id !== id){
       alert("ID must match the first registered ID for this worker");
@@ -185,6 +239,10 @@ function addWorker(){
   };
 
   workers.push(w);
+
+  let wd = getWeekData(w,currentWeek);
+  saveToSheet(w, wd);
+
   render();
 }
 
@@ -237,18 +295,20 @@ function render(){
 }
 
 function updateDay(i,di,val){
-  getWeekData(workers[i],currentWeek).days[di]=val;
+  let wd=getWeekData(workers[i],currentWeek);
+  wd.days[di]=val;
+  saveToSheet(workers[i], wd);
   render();
 }
 
 function updatePaid(i,val){
   let wd=getWeekData(workers[i],currentWeek);
   wd.paid=parseFloat(val)||0;
+  saveToSheet(workers[i], wd);
   render();
 }
 
-/* EXPORT (UNCHANGED) */
-
+/* EXPORT UNCHANGED BELOW */
 function drawHeader(doc, title){
   let v = venue.value || "";
   let p = projectName.value || "";

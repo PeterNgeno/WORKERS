@@ -19,7 +19,7 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
 
-/* ✅ hide inputs completely for viewers */
+/* hide inputs for viewers */
 body:not(.admin) input,
 body:not(.admin) select,
 body:not(.admin) button {
@@ -180,27 +180,32 @@ async function loadFromSheet(){
 
 window.onload = loadFromSheet;
 
-/* SAVE */
+/* ✅ FIXED SAVE */
 async function saveToSheet(worker, wd){
-  await fetch(API_URL,{
-    method:"POST",
-    mode:"no-cors",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      action:"update",
-      name: worker.name,
-      phone: worker.number,
-      id: worker.id,
-      type: worker.type,
-      rate: worker.rate,
-      week: currentWeek,
-      days: wd.days.join(","),
-      paid: wd.paid,
-      arrears: wd.arrears
-    })
-  });
+  try{
+    await fetch(API_URL,{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        action:"update",
+        name: worker.name,
+        phone: worker.number,
+        id: worker.id,
+        type: worker.type,
+        rate: worker.rate,
+        week: currentWeek,
+        days: wd.days.join(","),
+        paid: wd.paid,
+        arrears: wd.arrears
+      })
+    });
 
-  setTimeout(loadFromSheet,500);
+    setTimeout(loadFromSheet,500);
+
+  }catch(e){
+    console.error("SAVE ERROR:", e);
+    alert("Failed to save");
+  }
 }
 
 /* ADD */
@@ -269,7 +274,6 @@ function render(){
     <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d,di)=>{
-
       if(isAdmin){
         row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
       } else {

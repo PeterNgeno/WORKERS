@@ -19,7 +19,6 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
 
-/* hide inputs for viewers */
 body:not(.admin) input,
 body:not(.admin) select,
 body:not(.admin) button {
@@ -107,7 +106,8 @@ body:not(.admin) button {
 
 const { jsPDF } = window.jspdf;
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxGw9veDKcg4yVIvUzF4DfKspUbpX10bJ2I6OeitWL6TSYL9QRqJu5iNCoutcE0dc-9/exec";
+/* ✅ FIXED NEW API */
+const API_URL = "https://script.google.com/macros/s/AKfycbzlrgwmqh00kPlZr3TI4Xbeze3p5GmeVeXCpSN7dzSZa-_SVBKbOO3br4UrnR9mUj4E9A/exec";
 
 let workers = [];
 let currentWeek = 1;
@@ -118,7 +118,6 @@ function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
-/* ADMIN */
 function toggleAdmin(state){
   if(state){
     let pass = prompt("Enter Admin Password:");
@@ -136,7 +135,6 @@ function toggleAdmin(state){
   render();
 }
 
-/* LOAD */
 async function loadFromSheet(){
   try{
     let res = await fetch(API_URL);
@@ -180,14 +178,12 @@ async function loadFromSheet(){
 
 window.onload = loadFromSheet;
 
-/* ✅ FIXED SAVE */
 async function saveToSheet(worker, wd){
   try{
     await fetch(API_URL,{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
-        action:"update",
         name: worker.name,
         phone: worker.number,
         id: worker.id,
@@ -208,7 +204,6 @@ async function saveToSheet(worker, wd){
   }
 }
 
-/* ADD */
 function addWorker(){
   if(!isAdmin) return;
 
@@ -244,7 +239,6 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* WEEK BUTTONS */
 function generateWeekButtons(){
   weekButtons.innerHTML="";
   for(let i=1;i<=maxWeek;i++){
@@ -258,7 +252,6 @@ function goToWeek(w){
   render();
 }
 
-/* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';

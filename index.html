@@ -19,6 +19,7 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
 
+/* hide inputs for viewers */
 body:not(.admin) input,
 body:not(.admin) select,
 body:not(.admin) button {
@@ -106,7 +107,7 @@ body:not(.admin) button {
 
 const { jsPDF } = window.jspdf;
 
-/* ✅ FIXED NEW API */
+/* ✅ NEW WORKING API */
 const API_URL = "https://script.google.com/macros/s/AKfycbzlrgwmqh00kPlZr3TI4Xbeze3p5GmeVeXCpSN7dzSZa-_SVBKbOO3br4UrnR9mUj4E9A/exec";
 
 let workers = [];
@@ -118,6 +119,7 @@ function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
+/* ADMIN */
 function toggleAdmin(state){
   if(state){
     let pass = prompt("Enter Admin Password:");
@@ -135,6 +137,7 @@ function toggleAdmin(state){
   render();
 }
 
+/* LOAD */
 async function loadFromSheet(){
   try{
     let res = await fetch(API_URL);
@@ -167,23 +170,24 @@ async function loadFromSheet(){
       if(row.Week > maxWeek) maxWeek = row.Week;
     });
 
-    generateWeekButtons();
     render();
 
   }catch(e){
     console.error("LOAD ERROR:", e);
-    alert("Failed to load data");
+    alert("Backend not returning JSON. Fix Apps Script.");
   }
 }
 
 window.onload = loadFromSheet;
 
+/* ✅ FIXED SAVE */
 async function saveToSheet(worker, wd){
   try{
-    await fetch(API_URL,{
+    let res = await fetch(API_URL,{
       method:"POST",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({
+        action:"update",
         name: worker.name,
         phone: worker.number,
         id: worker.id,
@@ -196,14 +200,18 @@ async function saveToSheet(worker, wd){
       })
     });
 
+    let text = await res.text();
+    console.log("SAVE RESPONSE:", text);
+
     setTimeout(loadFromSheet,500);
 
   }catch(e){
     console.error("SAVE ERROR:", e);
-    alert("Failed to save");
+    alert("Saving failed. Backend issue.");
   }
 }
 
+/* ADD */
 function addWorker(){
   if(!isAdmin) return;
 
@@ -239,19 +247,7 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-function generateWeekButtons(){
-  weekButtons.innerHTML="";
-  for(let i=1;i<=maxWeek;i++){
-    weekButtons.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
-  }
-}
-
-function goToWeek(w){
-  currentWeek=w;
-  weekDisplay.innerText="Current Week: "+w;
-  render();
-}
-
+/* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';

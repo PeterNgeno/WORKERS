@@ -100,7 +100,8 @@ body.admin .admin-only { display:table-cell; }
 
 const { jsPDF } = window.jspdf;
 
-const API_URL = "https://script.google.com/macros/s/AKfycbxBj_lZEzYJ5csr4FZ94Nm2PocxPWOy1LrL2EMrZZvZuBsk5GMRX6eoxrUvP08pYj5zkw/exec";
+/* ✅ NEW CORRECT API */
+const API_URL = "https://script.google.com/macros/s/AKfycbxGw9veDKcg4yVIvUzF4DfKspUbpX10bJ2I6OeitWL6TSYL9QRqJu5iNCoutcE0dc-9/exec";
 
 let workers = [];
 let currentWeek = 1;
@@ -126,79 +127,81 @@ function toggleAdmin(state){
     document.body.classList.remove("admin");
     isAdmin = false;
   }
-}
-
-/* LOAD FROM SHEET */
-async function loadFromSheet(){
-  let res = await fetch(API_URL);
-  let data = await res.json();
-
-  workers = [];
-
-  data.forEach(row=>{
-    let key = row.Name + "_" + row.Week;
-
-    let existing = workers.find(x=>x.name===row.Name);
-
-    if(!existing){
-      existing = {
-        name: row.Name,
-        number: row.Phone,
-        id: row.ID,
-        type: row.Type,
-        rate: parseFloat(row.Rate),
-        weeks:{}
-      };
-      workers.push(existing);
-    }
-
-    existing.weeks[row.Week] = {
-      days: row.Days ? row.Days.split(",") : ['','','','','','',''],
-      paid: parseFloat(row.Paid)||0,
-      arrears: parseFloat(row.Arrears)||0
-    };
-  });
 
   render();
 }
 
-window.onload = loadFromSheet;
-
-/* SAVE (UPDATE STYLE) */
-async function saveToSheet(worker, wd){
+/* LOAD */
+async function loadFromSheet(){
   try{
-    await fetch(API_URL,{
-      method:"POST",
-      mode:"no-cors",
-      headers:{
-        "Content-Type":"application/json"
-      },
-      body: JSON.stringify({
-        action:"update", // 🔥 tells backend to update
-        name: worker.name,
-        phone: worker.number,
-        id: worker.id,
-        type: worker.type,
-        rate: worker.rate,
-        week: currentWeek,
-        days: wd.days.join(","),
-        paid: wd.paid,
-        arrears: wd.arrears
-      })
+    let res = await fetch(API_URL);
+    let data = await res.json();
+
+    workers = [];
+
+    data.forEach(row=>{
+      let existing = workers.find(x=>x.name===row.Name);
+
+      if(!existing){
+        existing = {
+          name: row.Name,
+          number: row.Phone,
+          id: row.ID,
+          type: row.Type,
+          rate: parseFloat(row.Rate),
+          weeks:{}
+        };
+        workers.push(existing);
+      }
+
+      existing.weeks[row.Week] = {
+        days: row.Days ? row.Days.split(",") : ['','','','','','',''],
+        paid: parseFloat(row.Paid)||0,
+        arrears: parseFloat(row.Arrears)||0
+      };
+
+      if(row.Week > maxWeek) maxWeek = row.Week;
     });
 
-    // reload fresh data
-    setTimeout(loadFromSheet,500);
+    generateWeekButtons();
+    render();
 
   }catch(e){
-    console.error(e);
+    console.error("LOAD ERROR:", e);
+    alert("Failed to load data. Check script deployment.");
   }
 }
 
+window.onload = loadFromSheet;
+
+/* SAVE */
+async function saveToSheet(worker, wd){
+  await fetch(API_URL,{
+    method:"POST",
+    mode:"no-cors",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      action:"update",
+      name: worker.name,
+      phone: worker.number,
+      id: worker.id,
+      type: worker.type,
+      rate: worker.rate,
+      week: currentWeek,
+      days: wd.days.join(","),
+      paid: wd.paid,
+      arrears: wd.arrears
+    })
+  });
+
+  setTimeout(loadFromSheet,500);
+}
+
+/* ADD WORKER */
 function addWorker(){
-  let name = nameInput.value.trim();
-  let id = idNumber.value.trim();
-  let phone = number.value.trim() || "unknown";
+  let name = document.getElementById("name").value.trim();
+  let id = document.getElementById("idNumber").value.trim();
+  let phone = document.getElementById("number").value.trim() || "unknown";
 
   if(!name){ alert("Enter name"); return; }
 
@@ -206,7 +209,7 @@ function addWorker(){
 
   if(existingWorker){
     if(existingWorker.id && id && existingWorker.id !== id){
-      alert("ID must match the first registered ID for this worker");
+      alert("ID must match first ID");
       return;
     }
   }
@@ -235,7 +238,7 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
-/* RENDER (VIEWER LOCK ADDED) */
+/* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';
@@ -251,7 +254,6 @@ function render(){
     <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d,di)=>{
-
       let disabled = isAdmin ? "" : "disabled";
 
       row+=`<td><input ${disabled} value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
@@ -268,7 +270,7 @@ function render(){
 
     let paidInput = isAdmin 
       ? `<input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)">`
-      : wd.paid;
+      : formatMoney(wd.paid);
 
     row+=`
     <td>${daysWorked}</td>
@@ -285,17 +287,18 @@ function render(){
 }
 
 function updateDay(i,di,val){
+  if(!isAdmin) return;
   let wd=getWeekData(workers[i],currentWeek);
   wd.days[di]=val;
   saveToSheet(workers[i], wd);
 }
 
 function updatePaid(i,val){
+  if(!isAdmin) return;
   let wd=getWeekData(workers[i],currentWeek);
   wd.paid=parseFloat(val)||0;
   saveToSheet(workers[i], wd);
 }
-
 
 </script>
 </body>

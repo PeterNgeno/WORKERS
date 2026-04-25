@@ -107,8 +107,8 @@ body:not(.admin) button {
 
 const { jsPDF } = window.jspdf;
 
-/* ✅ NEW WORKING API */
-const API_URL = "https://script.google.com/macros/s/AKfycbzlrgwmqh00kPlZr3TI4Xbeze3p5GmeVeXCpSN7dzSZa-_SVBKbOO3br4UrnR9mUj4E9A/exec";
+/* ✅ UPDATED API (YOUR NEW DEPLOYMENT) */
+const API_URL = "https://script.google.com/macros/s/AKfycbz36Y0_khbscaxVNK3IgWjQ4aGZ911FkW3xbJfs0_IkSFtImJ0bPHrsj9b6bm3q579lUQ/exec";
 
 let workers = [];
 let currentWeek = 1;
@@ -180,7 +180,7 @@ async function loadFromSheet(){
 
 window.onload = loadFromSheet;
 
-/* ✅ FIXED SAVE */
+/* SAVE */
 async function saveToSheet(worker, wd){
   try{
     let res = await fetch(API_URL,{

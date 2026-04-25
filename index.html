@@ -18,6 +18,13 @@ button { padding:8px; background:#2563eb; color:white; border:none; cursor:point
 
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
+
+/* ✅ hide inputs completely for viewers */
+body:not(.admin) input,
+body:not(.admin) select,
+body:not(.admin) button {
+  display:none;
+}
 </style>
 </head>
 
@@ -100,7 +107,6 @@ body.admin .admin-only { display:table-cell; }
 
 const { jsPDF } = window.jspdf;
 
-/* ✅ NEW CORRECT API */
 const API_URL = "https://script.google.com/macros/s/AKfycbxGw9veDKcg4yVIvUzF4DfKspUbpX10bJ2I6OeitWL6TSYL9QRqJu5iNCoutcE0dc-9/exec";
 
 let workers = [];
@@ -127,7 +133,6 @@ function toggleAdmin(state){
     document.body.classList.remove("admin");
     isAdmin = false;
   }
-
   render();
 }
 
@@ -138,6 +143,7 @@ async function loadFromSheet(){
     let data = await res.json();
 
     workers = [];
+    maxWeek = 1;
 
     data.forEach(row=>{
       let existing = workers.find(x=>x.name===row.Name);
@@ -168,7 +174,7 @@ async function loadFromSheet(){
 
   }catch(e){
     console.error("LOAD ERROR:", e);
-    alert("Failed to load data. Check script deployment.");
+    alert("Failed to load data");
   }
 }
 
@@ -197,8 +203,10 @@ async function saveToSheet(worker, wd){
   setTimeout(loadFromSheet,500);
 }
 
-/* ADD WORKER */
+/* ADD */
 function addWorker(){
+  if(!isAdmin) return;
+
   let name = document.getElementById("name").value.trim();
   let id = document.getElementById("idNumber").value.trim();
   let phone = document.getElementById("number").value.trim() || "unknown";
@@ -206,13 +214,6 @@ function addWorker(){
   if(!name){ alert("Enter name"); return; }
 
   let existingWorker = workers.find(w=>w.name===name);
-
-  if(existingWorker){
-    if(existingWorker.id && id && existingWorker.id !== id){
-      alert("ID must match first ID");
-      return;
-    }
-  }
 
   let w = existingWorker || {
     name,
@@ -238,6 +239,20 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
+/* WEEK BUTTONS */
+function generateWeekButtons(){
+  weekButtons.innerHTML="";
+  for(let i=1;i<=maxWeek;i++){
+    weekButtons.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
+  }
+}
+
+function goToWeek(w){
+  currentWeek=w;
+  weekDisplay.innerText="Current Week: "+w;
+  render();
+}
+
 /* RENDER */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
@@ -254,12 +269,14 @@ function render(){
     <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d,di)=>{
-      let disabled = isAdmin ? "" : "disabled";
 
-      row+=`<td><input ${disabled} value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
+      if(isAdmin){
+        row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
+      } else {
+        row+=`<td>${d||''}</td>`;
+      }
 
       let val=(d||'').toLowerCase();
-
       if(val=='y'){ total+=w.rate; daysWorked++; }
       else if(val=='y/n'){ total+=w.rate/2; daysWorked+=0.5; }
     });
@@ -268,7 +285,7 @@ function render(){
     let totalDue=total+arrears;
     let balance=totalDue-wd.paid;
 
-    let paidInput = isAdmin 
+    let paidField = isAdmin
       ? `<input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)">`
       : formatMoney(wd.paid);
 
@@ -277,7 +294,7 @@ function render(){
     <td>${formatMoney(total)}</td>
     <td>${formatMoney(arrears)}</td>
     <td>${formatMoney(totalDue)}</td>
-    <td>${paidInput}</td>
+    <td>${paidField}</td>
     <td>${formatMoney(balance)}</td>
     </tr>`;
 

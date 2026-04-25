@@ -100,32 +100,35 @@ body.admin .admin-only { display:table-cell; }
 
 const { jsPDF } = window.jspdf;
 
-/* ✅ UPDATED API */
 const API_URL = "https://script.google.com/macros/s/AKfycbxBj_lZEzYJ5csr4FZ94Nm2PocxPWOy1LrL2EMrZZvZuBsk5GMRX6eoxrUvP08pYj5zkw/exec";
 
 let workers = [];
 let currentWeek = 1;
 let maxWeek = 1;
+let isAdmin = false;
 
 function formatMoney(num){
   return "Ksh " + Number(num || 0).toLocaleString();
 }
 
+/* ADMIN */
 function toggleAdmin(state){
   if(state){
     let pass = prompt("Enter Admin Password:");
     if(pass === "@Adminpage1234"){
       document.body.classList.add("admin");
+      isAdmin = true;
     } else {
       alert("Wrong password");
       document.querySelector("input[type=checkbox]").checked=false;
     }
   } else {
     document.body.classList.remove("admin");
+    isAdmin = false;
   }
 }
 
-/* LOAD */
+/* LOAD FROM SHEET */
 async function loadFromSheet(){
   let res = await fetch(API_URL);
   let data = await res.json();
@@ -133,10 +136,12 @@ async function loadFromSheet(){
   workers = [];
 
   data.forEach(row=>{
-    let w = workers.find(x=>x.name===row.Name);
+    let key = row.Name + "_" + row.Week;
 
-    if(!w){
-      w = {
+    let existing = workers.find(x=>x.name===row.Name);
+
+    if(!existing){
+      existing = {
         name: row.Name,
         number: row.Phone,
         id: row.ID,
@@ -144,10 +149,10 @@ async function loadFromSheet(){
         rate: parseFloat(row.Rate),
         weeks:{}
       };
-      workers.push(w);
+      workers.push(existing);
     }
 
-    w.weeks[row.Week] = {
+    existing.weeks[row.Week] = {
       days: row.Days ? row.Days.split(",") : ['','','','','','',''],
       paid: parseFloat(row.Paid)||0,
       arrears: parseFloat(row.Arrears)||0
@@ -159,7 +164,7 @@ async function loadFromSheet(){
 
 window.onload = loadFromSheet;
 
-/* ✅ SAVE FIXED */
+/* SAVE (UPDATE STYLE) */
 async function saveToSheet(worker, wd){
   try{
     await fetch(API_URL,{
@@ -169,6 +174,7 @@ async function saveToSheet(worker, wd){
         "Content-Type":"application/json"
       },
       body: JSON.stringify({
+        action:"update", // 🔥 tells backend to update
         name: worker.name,
         phone: worker.number,
         id: worker.id,
@@ -180,51 +186,21 @@ async function saveToSheet(worker, wd){
         arrears: wd.arrears
       })
     });
+
+    // reload fresh data
+    setTimeout(loadFromSheet,500);
+
   }catch(e){
     console.error(e);
   }
 }
 
-function saveProject(){
-  let v = venue.value;
-  let p = projectName.value;
-  projectDisplay.innerText = "Venue: " + v + " | Project: " + p;
-}
-
-function setWeek(){
-  currentWeek = parseInt(weekNumber.value) || 1;
-  if(currentWeek > maxWeek) maxWeek = currentWeek;
-  weekDisplay.innerText = "Current Week: " + currentWeek;
-  generateWeekButtons();
-  render();
-}
-
-function generateWeekButtons(){
-  weekButtons.innerHTML="";
-  for(let i=1;i<=maxWeek;i++){
-    weekButtons.innerHTML += `<button onclick="goToWeek(${i})">Week ${i}</button>`;
-  }
-}
-
-function goToWeek(w){
-  currentWeek=w;
-  weekNumber.value=w;
-  weekDisplay.innerText="Current Week: "+w;
-  render();
-}
-
 function addWorker(){
-  let name = document.getElementById("name").value.trim();
-  let id = document.getElementById("idNumber").value.trim();
-  let phone = document.getElementById("number").value.trim() || "unknown";
+  let name = nameInput.value.trim();
+  let id = idNumber.value.trim();
+  let phone = number.value.trim() || "unknown";
 
   if(!name){ alert("Enter name"); return; }
-
-  let phoneExists = workers.find(w=>w.number===phone && phone!=="unknown");
-  if(phoneExists){
-    alert("Phone already used by another worker");
-    return;
-  }
 
   let existingWorker = workers.find(w=>w.name===name);
 
@@ -235,19 +211,16 @@ function addWorker(){
     }
   }
 
-  let exists = workers.find(w=>w.name===name && w.weeks[currentWeek]);
-  if(exists){ alert("Already exists this week"); return; }
-
-  let w = {
+  let w = existingWorker || {
     name,
     number: phone,
-    id: existingWorker ? existingWorker.id : id,
+    id,
     type:type.value,
     rate:parseFloat(rate.value)||0,
     weeks:{}
   };
 
-  workers.push(w);
+  if(!existingWorker) workers.push(w);
 
   let wd = getWeekData(w,currentWeek);
   saveToSheet(w, wd);
@@ -262,6 +235,7 @@ function getWeekData(w,week){
   return w.weeks[week];
 }
 
+/* RENDER (VIEWER LOCK ADDED) */
 function render(){
   skilledTable.querySelector('tbody').innerHTML='';
   casualTable.querySelector('tbody').innerHTML='';
@@ -277,7 +251,10 @@ function render(){
     <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d,di)=>{
-      row+=`<td><input value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
+
+      let disabled = isAdmin ? "" : "disabled";
+
+      row+=`<td><input ${disabled} value="${d||''}" onchange="updateDay(${i},${di},this.value)"></td>`;
 
       let val=(d||'').toLowerCase();
 
@@ -289,12 +266,16 @@ function render(){
     let totalDue=total+arrears;
     let balance=totalDue-wd.paid;
 
+    let paidInput = isAdmin 
+      ? `<input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)">`
+      : wd.paid;
+
     row+=`
     <td>${daysWorked}</td>
     <td>${formatMoney(total)}</td>
     <td>${formatMoney(arrears)}</td>
     <td>${formatMoney(totalDue)}</td>
-    <td><input value="${wd.paid||0}" onchange="updatePaid(${i},this.value)"></td>
+    <td>${paidInput}</td>
     <td>${formatMoney(balance)}</td>
     </tr>`;
 
@@ -307,99 +288,14 @@ function updateDay(i,di,val){
   let wd=getWeekData(workers[i],currentWeek);
   wd.days[di]=val;
   saveToSheet(workers[i], wd);
-  render();
 }
 
 function updatePaid(i,val){
   let wd=getWeekData(workers[i],currentWeek);
   wd.paid=parseFloat(val)||0;
   saveToSheet(workers[i], wd);
-  render();
 }
 
-/* EXPORT unchanged */
-function drawHeader(doc, title){
-  let v = venue.value || "";
-  let p = projectName.value || "";
-
-  doc.setFillColor(30,58,138);
-  doc.rect(0,0,210,20,'F');
-
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(14);
-  doc.text(title,10,12);
-
-  doc.setFontSize(10);
-  doc.text(`Venue: ${v} | Project: ${p}`,10,17);
-
-  doc.setTextColor(0,0,0);
-}
-
-function getWeekBalance(w, week){
-  let wd = w.weeks[week];
-  if(!wd) return 0;
-
-  let total = 0;
-
-  wd.days.forEach(d=>{
-    if((d||'').toLowerCase()=='y') total+=w.rate;
-    if((d||'').toLowerCase()=='y/n') total+=w.rate/2;
-  });
-
-  return total - (wd.paid || 0);
-}
-
-function exportAll(type){
-  let doc=new jsPDF();
-  drawHeader(doc, type+" Labour Report");
-
-  let y=30;
-
-  workers.filter(w=>w.type===type).forEach(w=>{
-    doc.text("Name: "+w.name,10,y); y+=6;
-
-    Object.keys(w.weeks).forEach(week=>{
-      let d=w.weeks[week];
-      let balance = getWeekBalance(w, week);
-
-      doc.text(
-        `Week ${week} | Paid: ${formatMoney(d.paid)} | Balance: ${formatMoney(balance)}`,
-        10,y
-      );
-      y+=6;
-    });
-
-    y+=4;
-  });
-
-  doc.save(type+"_report.pdf");
-}
-
-function exportSingle(){
-  let name=workerExportName.value.trim();
-  let w=workers.find(x=>x.name===name);
-  if(!w){ alert("Not found"); return; }
-
-  let doc=new jsPDF();
-  drawHeader(doc, "Worker Report");
-
-  let y=30;
-
-  doc.text("Name: "+w.name,10,y); y+=10;
-
-  Object.keys(w.weeks).forEach(week=>{
-    let d=w.weeks[week];
-    let balance = getWeekBalance(w, week);
-
-    doc.text(
-      `Week ${week} | Paid: ${formatMoney(d.paid)} | Balance: ${formatMoney(balance)}`,
-      10,y
-    );
-    y+=8;
-  });
-
-  doc.save(name+".pdf");
-}
 
 </script>
 </body>

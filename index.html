@@ -8,15 +8,25 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: Arial; background:#0b1f3a; color:white; padding:10px; }
+body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
 h1 { text-align:center; }
-.container { display:flex; gap:10px; flex-wrap:wrap; }
-table { border-collapse: collapse; width:100%; font-size:12px; }
-th, td { border:1px solid #ccc; padding:5px; text-align:center; }
 .section { margin-top:20px; }
-button { padding:6px 10px; margin:2px; }
-input, select { padding:5px; }
-.card { background:#132c4a; padding:10px; border-radius:10px; }
+table { width:100%; border-collapse: collapse; margin-top:10px; font-size:12px; }
+th, td { border:1px solid #fff; padding:5px; text-align:center; }
+th { background:#1e3a8a; }
+input, select { padding:5px; margin:3px; width:90px;}
+button { padding:6px; background:#2563eb; color:white; border:none; cursor:pointer; margin:2px;}
+.header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
+
+.admin-only { display:none; }
+body.admin .admin-only { display:table-cell; }
+
+body:not(.admin) input,
+body:not(.admin) select,
+body:not(.admin) button {
+  display:none;
+}
+canvas { background:white; border-radius:10px; margin-top:10px; }
 </style>
 </head>
 
@@ -24,172 +34,253 @@ input, select { padding:5px; }
 
 <h1>Labour Management System</h1>
 
-<div class="section card">
+<label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
+
+<div class="section header-box">
+<h3>Week Control</h3>
+<input id="weekNumber" type="number" placeholder="Week">
+<button onclick="setWeek()">Set Week</button>
+<p id="weekDisplay"></p>
+</div>
+
+<div class="section">
 <h3>Add Worker</h3>
-<input id="name" placeholder="Name">
-<input id="phone" placeholder="Phone">
-<input id="id" placeholder="ID">
+<input id="nameInput" placeholder="Name">
+<input id="number" placeholder="Phone">
+<input id="idNumber" placeholder="ID">
 <select id="type">
-<option>Skilled</option>
-<option>Casual</option>
+<option value="Skilled">Skilled</option>
+<option value="Casual">Casual</option>
 </select>
 <input id="rate" placeholder="Rate">
 <button onclick="addWorker()">Add</button>
 </div>
 
-<div class="container">
-<div class="card">
+<div class="section">
+<h3>Summary</h3>
+<p id="summary"></p>
+</div>
+
+<div class="section">
+<h3>Analytics Dashboard</h3>
+<canvas id="weeklyChart"></canvas>
+<canvas id="attendanceChart"></canvas>
+</div>
+
+<div class="section">
 <h3>Skilled Labourers</h3>
-<table id="skilledTable"></table>
+<table id="skilledTable"><thead>
+<tr>
+<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th>
+<th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
+<th class="admin-only">Delete</th>
+</tr>
+</thead><tbody></tbody></table>
 </div>
 
-<div class="card">
+<div class="section">
 <h3>Casual Labourers</h3>
-<table id="casualTable"></table>
-</div>
-</div>
-
-<div class="section card">
-<h3>Dashboard</h3>
-<p id="stats"></p>
+<table id="casualTable"><thead>
+<tr>
+<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th>
+<th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
+<th class="admin-only">Delete</th>
+</tr>
+</thead><tbody></tbody></table>
 </div>
 
 <script>
-const API = "YOUR_GOOGLE_SCRIPT_URL";
-let data = [];
+const API_URL = "YOUR_SCRIPT_URL_HERE";
 
-// ================= ATTENDANCE =================
-function parseAttendance(v){
- if(!v) return 0;
- v = v.toLowerCase();
- if(v === 'y') return 1;
- if(v === 'n') return 0;
- if(v === 'y/n') return 0.5;
- return 0;
+let workers = [];
+let currentWeek = 1;
+let isAdmin = false;
+
+function formatMoney(n){ return "Ksh " + (n||0).toLocaleString(); }
+
+function normalize(d){
+  if(!d) return "";
+  d = d.toLowerCase();
+  if(d==="y") return "y";
+  if(d==="n") return "n";
+  if(d==="y/n") return "y/n";
+  return "";
 }
 
-// ================= CALCULATIONS =================
-function calculate(row){
- const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
- let total = 0;
-
- days.forEach(d => total += parseAttendance(row[d]));
-
- row.Days = total;
- row.Earnings = total * row.Rate;
- row.TotalDue = row.Earnings + (row.Arrears || 0);
- row.Balance = row.TotalDue - (row.Paid || 0);
+function toggleAdmin(s){
+  if(s){
+    let p = prompt("Password:");
+    if(p==="@Adminpage1234"){ document.body.classList.add("admin"); isAdmin=true;}
+    else alert("Wrong password");
+  } else { document.body.classList.remove("admin"); isAdmin=false; }
+  render();
 }
 
-// ================= LOAD DATA =================
-async function loadData(){
- const res = await fetch(API);
- const json = await res.json();
+/* LOAD */
+async function load(){
+  let res = await fetch(API_URL);
+  let data = await res.json();
 
- const headers = json[0];
+  workers=[];
 
- data = json.slice(1).map(r=>{
-  let obj = {};
-  headers.forEach((h,i)=> obj[h]=r[i]);
+  data.forEach(r=>{
+    let w = workers.find(x=>x.name===r.Name);
+    if(!w){
+      w={name:r.Name,number:r.Phone,id:r.ID,type:r.Type,rate:+r.Rate,weeks:{}};
+      workers.push(w);
+    }
 
-  obj.Rate = Number(obj.Rate || 0);
-  obj.Paid = Number(obj.Paid || 0);
-  obj.Arrears = Number(obj.Arrears || 0);
+    w.weeks[r.Week]={
+      days:r.Days.split(","),
+      paid:+r.Paid||0,
+      arrears:+r.Arrears||0,
+      date:r.Date||""
+    };
+  });
 
-  calculate(obj);
-  return obj;
- });
+  render();
+}
+window.onload=load;
 
- render();
+/* SAVE */
+async function save(w,wd){
+  await fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"update",
+      name:w.name, phone:w.number, id:w.id,
+      type:w.type, rate:w.rate,
+      week:currentWeek,
+      days:wd.days.join(","),
+      paid:wd.paid,
+      arrears:wd.arrears,
+      date:wd.date || new Date().toISOString().split("T")[0]
+    })
+  });
+  setTimeout(load,500);
 }
 
-// ================= RENDER =================
+/* DELETE */
+async function deleteWorker(name){
+  if(!confirm("Delete "+name+"?")) return;
+  await fetch(API_URL,{
+    method:"POST",
+    body:JSON.stringify({action:"delete",name})
+  });
+  setTimeout(load,500);
+}
+
+function getWeekData(w,week){
+  if(!w.weeks[week]){
+    let prev=w.weeks[week-1];
+    let arrears=prev?(prev.totalDue-prev.paid):0;
+    w.weeks[week]={days:['','','','','','',''],paid:0,arrears,date:""};
+  }
+  return w.weeks[week];
+}
+
+function addWorker(){
+  let name=nameInput.value.trim();
+  if(!name) return alert("Name required");
+
+  let w={name,number:number.value,id:idNumber.value,type:type.value,rate:+rate.value,weeks:{}};
+  workers.push(w);
+
+  let wd=getWeekData(w,currentWeek);
+  save(w,wd);
+}
+
+/* RENDER */
 function render(){
- renderTable('Skilled','skilledTable');
- renderTable('Casual','casualTable');
- dashboard();
+  let totalPaid=0,totalDue=0;
+
+  skilledTable.querySelector("tbody").innerHTML="";
+  casualTable.querySelector("tbody").innerHTML="";
+
+  let attendanceData = {};
+
+  workers.forEach((w,i)=>{
+    let wd=getWeekData(w,currentWeek);
+    let total=0,days=0;
+
+    let row=`<tr><td>${w.name}</td>
+    <td class='admin-only'>${w.number}</td>
+    <td class='admin-only'>${w.id}</td>
+    <td>${formatMoney(w.rate)}</td>`;
+
+    wd.days.forEach((d,di)=>{
+      d = normalize(d);
+
+      row+= isAdmin
+      ? `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`
+      : `<td>${d}</td>`;
+
+      if(d==="y"){ total+=w.rate; days++; }
+      if(d==="y/n"){ total+=w.rate/2; days+=0.5; }
+    });
+
+    let arrears=wd.arrears||0;
+    let totalDueW=total+arrears;
+    wd.totalDue=totalDueW;
+
+    totalDue+=totalDueW;
+    totalPaid+=wd.paid;
+
+    let balance=totalDueW-wd.paid;
+
+    attendanceData[w.name]=days;
+
+    row+=`<td>${days}</td>
+    <td>${formatMoney(total)}</td>
+    <td>${formatMoney(arrears)}</td>
+    <td>${formatMoney(totalDueW)}</td>
+    <td>${isAdmin?`<input value="${wd.paid}" onchange="updatePaid(${i},this.value)">`:formatMoney(wd.paid)}</td>
+    <td>${wd.date||""}</td>
+    <td>${formatMoney(balance)}</td>
+    <td class='admin-only'><button onclick="deleteWorker('${w.name}')">X</button></td>
+    </tr>`;
+
+    (w.type==="Skilled"?skilledTable:casualTable).querySelector("tbody").innerHTML+=row;
+  });
+
+  document.getElementById("summary").innerText =
+    "Total Due: "+formatMoney(totalDue)+" | Paid: "+formatMoney(totalPaid)+" | Balance: "+formatMoney(totalDue-totalPaid);
+
+  drawCharts(attendanceData);
 }
 
-// ================= TABLE =================
-function renderTable(type,id){
- let table = document.getElementById(id);
- let rows = data.filter(d=>d.Type===type);
-
- let html = `
- <tr>
- <th>Name</th>
- <th>Mon</th><th>Tue</th><th>Wed</th>
- <th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
- <th>Days</th><th>Earnings</th><th>Paid</th><th>Balance</th>
- </tr>`;
-
- rows.forEach(r=>{
-  html += `
-  <tr>
-   <td>${r.Name}</td>
-
-   <td contenteditable onblur="update('${r.Name}','Mon',this.innerText)">${r.Mon||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Tue',this.innerText)">${r.Tue||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Wed',this.innerText)">${r.Wed||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Thu',this.innerText)">${r.Thu||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Fri',this.innerText)">${r.Fri||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Sat',this.innerText)">${r.Sat||''}</td>
-   <td contenteditable onblur="update('${r.Name}','Sun',this.innerText)">${r.Sun||''}</td>
-
-   <td>${r.Days}</td>
-   <td>${r.Earnings}</td>
-
-   <td contenteditable onblur="update('${r.Name}','Paid',this.innerText)">
-   ${r.Paid}
-   </td>
-
-   <td>${r.Balance}</td>
-  </tr>`;
- });
-
- table.innerHTML = html;
+function drawCharts(att){
+  new Chart(document.getElementById("attendanceChart"),{
+    type:"bar",
+    data:{
+      labels:Object.keys(att),
+      datasets:[{label:"Days Worked",data:Object.values(att)}]
+    }
+  });
 }
 
-// ================= UPDATE =================
-async function update(name,field,value){
- await fetch(API,{
-  method:'POST',
-  body: JSON.stringify({type:'update',name,field,value})
- });
- loadData();
+function updateDay(i,di,val){
+  let wd=getWeekData(workers[i],currentWeek);
+  wd.days[di]=val;
+  save(workers[i],wd);
 }
 
-// ================= ADD WORKER =================
-async function addWorker(){
- let row = [
-  document.getElementById('name').value,
-  document.getElementById('phone').value,
-  document.getElementById('id').value,
-  document.getElementById('type').value,
-  document.getElementById('rate').value,
-  new Date().toISOString().slice(0,10)
- ];
-
- await fetch(API,{
-  method:'POST',
-  body: JSON.stringify({type:'add',row})
- });
-
- loadData();
+function updatePaid(i,val){
+  let wd=getWeekData(workers[i],currentWeek);
+  wd.paid=+val||0;
+  wd.date=new Date().toISOString().split("T")[0];
+  save(workers[i],wd);
 }
-
-// ================= DASHBOARD =================
-function dashboard(){
- let totalPaid = data.reduce((s,d)=>s+d.Paid,0);
- let totalBalance = data.reduce((s,d)=>s+d.Balance,0);
-
- document.getElementById('stats').innerText =
- `Paid: ${totalPaid} | Balance: ${totalBalance}`;
-}
-
-// ================= START =================
-loadData();
 </script>
 
 </body>
-</html>
+ </html>

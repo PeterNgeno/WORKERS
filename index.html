@@ -92,7 +92,8 @@ canvas { background:white; border-radius:10px; margin-top:10px; }
 </div>
 
 <script>
-const API_URL = "https://script.google.com/macros/s/AKfycby7OFor7abap0oUSwo9Ivjnn542zKjMNfhSFQ851fkHnoiJVBAOo1TsbeDRDeIuLKxy/exec";
+/* ✅ UPDATED TO YOUR NEW SCRIPT */
+const API_URL = "https://script.google.com/macros/s/AKfycbwp89tgfnL2PKqyvDwLxWtk3RmhwIdtkFktsDmNXf2hjBrhS8ZsYU-L80yLYal_916Czg/exec";
 
 let workers = [];
 let currentWeek = 1;
@@ -132,36 +133,42 @@ function setWeek(){
 
 /* LOAD */
 async function load(){
-  let res = await fetch(API_URL);
-  let data = await res.json();
+  try{
+    let res = await fetch(API_URL);
+    let data = await res.json();
 
-  workers=[];
+    workers=[];
 
-  data.forEach(r=>{
-    if(!r.Name) return;
+    data.forEach(r=>{
+      if(!r.Name) return;
 
-    let w = workers.find(x=>x.name===r.Name);
-    if(!w){
-      w={name:r.Name,number:r.Phone,id:r.ID,type:r.Type,rate:+r.Rate,weeks:{}};
-      workers.push(w);
-    }
+      let w = workers.find(x=>x.name===r.Name);
+      if(!w){
+        w={name:r.Name,number:r.Phone,id:r.ID,type:r.Type,rate:+r.Rate,weeks:{}};
+        workers.push(w);
+      }
 
-    w.weeks[r.Week]={
-      days:(r.Days||"").split(","),
-      paid:+r.Paid||0,
-      arrears:+r.Arrears||0,
-      date:r.Date||""
-    };
-  });
+      w.weeks[r.Week]={
+        days:(r.Days||"").split(","),
+        paid:+r.Paid||0,
+        arrears:+r.Arrears||0,
+        date:r.Date||""
+      };
+    });
 
-  render();
+    render();
+  }catch(e){
+    alert("Error loading data. Check script deployment.");
+    console.error(e);
+  }
 }
 window.onload=load;
 
-/* SAVE */
+/* SAVE (FIXED) */
 async function save(w,wd){
   await fetch(API_URL,{
     method:"POST",
+    mode:"no-cors", /* 🔥 FIX */
     headers:{ "Content-Type":"application/json"},
     body:JSON.stringify({
       action:"update",
@@ -178,20 +185,21 @@ async function save(w,wd){
     })
   });
 
-  setTimeout(load,400);
+  setTimeout(load,800);
 }
 
-/* DELETE */
+/* DELETE (FIXED) */
 async function deleteWorker(name){
   if(!confirm("Delete "+name+"?")) return;
 
   await fetch(API_URL,{
     method:"POST",
+    mode:"no-cors", /* 🔥 FIX */
     headers:{ "Content-Type":"application/json"},
     body:JSON.stringify({action:"delete",name})
   });
 
-  setTimeout(load,400);
+  setTimeout(load,800);
 }
 
 /* WEEK DATA */
@@ -276,25 +284,19 @@ function render(){
   drawCharts(attendanceData, weeklyTotals);
 }
 
-/* CHARTS FIXED */
+/* CHARTS */
 function drawCharts(att, weekly){
   if(attendanceChart) attendanceChart.destroy();
   if(weeklyChart) weeklyChart.destroy();
 
   attendanceChart = new Chart(document.getElementById("attendanceChart"),{
     type:"bar",
-    data:{
-      labels:Object.keys(att),
-      datasets:[{label:"Days Worked",data:Object.values(att)}]
-    }
+    data:{ labels:Object.keys(att), datasets:[{label:"Days Worked",data:Object.values(att)}]}
   });
 
   weeklyChart = new Chart(document.getElementById("weeklyChart"),{
     type:"line",
-    data:{
-      labels:Object.keys(weekly),
-      datasets:[{label:"Weekly Payments",data:Object.values(weekly)}]
-    }
+    data:{ labels:Object.keys(weekly), datasets:[{label:"Weekly Payments",data:Object.values(weekly)}]}
   });
 }
 

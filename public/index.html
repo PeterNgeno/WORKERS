@@ -27,7 +27,7 @@ body.admin .admin-only { display:block; }
 
 <h1>Labour Management System</h1>
 
-<!-- ✅ ADMIN BUTTON -->
+<!-- ADMIN -->
 <label>
 <input type="checkbox" onchange="toggleAdmin(this.checked)">
  Admin Mode
@@ -43,7 +43,7 @@ body.admin .admin-only { display:block; }
 <p id="summary"></p>
 </div>
 
-<!-- ✅ EXPORT SECTION -->
+<!-- EXPORT -->
 <div class="section admin-only">
 <h3>Export & Share</h3>
 
@@ -130,7 +130,7 @@ function normalize(d){
   return "";
 }
 
-/* LOAD */
+/* LOAD FROM SHEET (KEEP ORDER) */
 async function load(){
   let res = await fetch(API_URL);
   let data = await res.json();
@@ -138,17 +138,17 @@ async function load(){
   workers = [];
 
   data.forEach(r=>{
-    let w = workers.find(x=>x.name===r.Name);
-    if(!w){
-      w = { name:r.Name, type:r.Type, rate:+r.Rate, weeks:{} };
-      workers.push(w);
-    }
+    if(!r.Name) return;
 
-    w.weeks[r.Week] = {
-      days:(r.Days||"").split(","),
-      paid:+r.Paid||0,
-      arrears:+r.Arrears||0
-    };
+    workers.push({
+      name: r.Name,
+      type: r.Type,
+      rate: +r.Rate,
+      week: r.Week,
+      days: (r.Days || "").split(","),
+      paid: +r.Paid || 0,
+      arrears: +r.Arrears || 0
+    });
   });
 
   render();
@@ -165,33 +165,33 @@ function render(){
   casualTable.querySelector("tbody").innerHTML="";
 
   workers.forEach(w=>{
-    let wd = w.weeks[currentWeek] || {days:['','','','','','',''],paid:0,arrears:0};
+    if(w.week != currentWeek) return;
 
     let total=0,days=0;
 
     let row=`<tr><td>${w.name}</td><td>${formatMoney(w.rate)}</td>`;
 
-    wd.days.forEach(d=>{
+    w.days.forEach(d=>{
       d=normalize(d);
       row+=`<td>${d}</td>`;
       if(d==="y"){ total+=w.rate; days++; }
       if(d==="y/n"){ total+=w.rate/2; days+=0.5; }
     });
 
-    let totalDueW=total+(wd.arrears||0);
+    let totalDueW=total+(w.arrears||0);
     totalDue+=totalDueW;
-    totalPaid+=wd.paid;
+    totalPaid+=w.paid;
 
-    let balance=totalDueW-wd.paid;
+    let balance=totalDueW-w.paid;
 
     attendanceData[w.name]=days;
-    weeklyTotals[currentWeek]=(weeklyTotals[currentWeek]||0)+wd.paid;
+    weeklyTotals[currentWeek]=(weeklyTotals[currentWeek]||0)+w.paid;
 
     row+=`<td>${days}</td>
     <td>${formatMoney(total)}</td>
-    <td>${formatMoney(wd.arrears)}</td>
+    <td>${formatMoney(w.arrears)}</td>
     <td>${formatMoney(totalDueW)}</td>
-    <td>${formatMoney(wd.paid)}</td>
+    <td>${formatMoney(w.paid)}</td>
     <td>-</td>
     <td>${formatMoney(balance)}</td></tr>`;
 
@@ -206,17 +206,27 @@ function render(){
 /* EXPORT */
 function exportSingle(){
   let name = workerName.value.trim().toLowerCase();
-  let w = workers.find(x=>x.name.toLowerCase()===name);
-  if(!w) return alert("Worker not found");
-  exportPDF(w);
+  let list = workers.filter(w=>w.name.toLowerCase()===name);
+  if(list.length===0) return alert("Worker not found");
+
+  exportPDF(name, list);
 }
 
 function exportAll(type){
-  workers.filter(w=>w.type===type).forEach(exportPDF);
+  let grouped = {};
+
+  workers.filter(w=>w.type===type).forEach(w=>{
+    if(!grouped[w.name]) grouped[w.name]=[];
+    grouped[w.name].push(w);
+  });
+
+  Object.keys(grouped).forEach(name=>{
+    exportPDF(name, grouped[name]);
+  });
 }
 
 /* PDF */
-function exportPDF(w){
+function exportPDF(name, records){
   const doc=new jsPDF();
 
   doc.setFillColor(30,58,138);
@@ -226,17 +236,16 @@ function exportPDF(w){
   doc.text("LABOUR REPORT",105,15,{align:"center"});
 
   doc.setTextColor(0,0,0);
-  doc.text("Name: "+w.name,10,40);
+  doc.text("Name: "+name,10,40);
 
   let y=50;
 
-  Object.keys(w.weeks).forEach(week=>{
-    let wd=w.weeks[week];
-    doc.text(`Week ${week} Paid: ${wd.paid}`,10,y);
+  records.forEach(w=>{
+    doc.text(`Week ${w.week} | Paid: ${w.paid}`,10,y);
     y+=10;
   });
 
-  doc.save(w.name+"_report.pdf");
+  doc.save(name+"_report.pdf");
 }
 
 /* CHARTS */
@@ -244,12 +253,12 @@ function drawCharts(att, weekly){
   if(attendanceChart) attendanceChart.destroy();
   if(weeklyChart) weeklyChart.destroy();
 
-  attendanceChart=new Chart(attendanceChart=document.getElementById("attendanceChart"),{
+  attendanceChart=new Chart(document.getElementById("attendanceChart"),{
     type:"bar",
     data:{labels:Object.keys(att),datasets:[{label:"Days",data:Object.values(att)}]}
   });
 
-  weeklyChart=new Chart(weeklyChart=document.getElementById("weeklyChart"),{
+  weeklyChart=new Chart(document.getElementById("weeklyChart"),{
     type:"line",
     data:{labels:Object.keys(weekly),datasets:[{label:"Payments",data:Object.values(weekly)}]}
   });

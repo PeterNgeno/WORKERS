@@ -6,6 +6,7 @@
 <title>Labour Management System</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
@@ -68,15 +69,14 @@ canvas {
  Admin View
 </label>
 
-<!-- WEEK CONTROL -->
 <div class="section header-box">
 <h3>Week Control</h3>
 <input id="weekNumber" type="number" placeholder="Week (1,2,3...)">
 <button onclick="setWeek()">Set Week</button>
+<button onclick="generatePDF()">Download Week PDF</button>
 <p id="weekDisplay"></p>
 </div>
 
-<!-- ADD WORKER -->
 <div class="section">
 <h3>Add Worker</h3>
 
@@ -94,13 +94,11 @@ canvas {
 <button onclick="addWorker()">Add Worker</button>
 </div>
 
-<!-- SUMMARY -->
 <div class="section">
 <h3>Summary</h3>
 <p id="summary"></p>
 </div>
 
-<!-- TABLES -->
 <div class="section">
 <h3>Skilled Labourers</h3>
 <table id="skilledTable">
@@ -153,7 +151,7 @@ function formatMoney(n){
 
 function normalize(d){
   if(!d) return "";
-  d = d.toString().toLowerCase().trim();
+  d = d.toLowerCase().trim();
   if(d === "y") return "y";
   if(d === "n") return "n";
   if(d === "y/n") return "y/n";
@@ -180,184 +178,145 @@ function toggleAdmin(s){
 
 /* WEEK */
 function setWeek(){
-  let w = +document.getElementById("weekNumber").value;
-  if(!w) return alert("Enter valid week number");
+  let w = +weekNumber.value;
+  if(!w) return alert("Enter valid week");
   currentWeek = w;
-  document.getElementById("weekDisplay").innerText = "Current Week: " + w;
+  weekDisplay.innerText = "Current Week: " + w;
   render();
+}
+
+/* CALCULATE */
+function calculateTotal(w, wd){
+  let total = 0;
+  wd.days.forEach(d=>{
+    d = normalize(d);
+    if(d==="y") total += w.rate;
+    if(d==="y/n") total += w.rate/2;
+  });
+  return total;
 }
 
 /* LOAD */
 async function load(){
-  try{
-    let res = await fetch(API_URL);
-    let data = await res.json();
+  let res = await fetch(API_URL);
+  let data = await res.json();
 
-    workers = [];
+  workers = [];
 
-    data.forEach(r => {
-      if(!r.Name) return;
+  data.forEach(r=>{
+    let w = workers.find(x=>x.name===r.Name);
 
-      let w = workers.find(x => x.name === r.Name);
-
-      if(!w){
-        w = {
-          name: r.Name,
-          number: r.Phone || "",
-          id: r.ID || "",
-          type: r.Type || "",
-          rate: +r.Rate || 0,
-          weeks: {}
-        };
-        workers.push(w);
-      }
-
-      w.weeks[r.Week] = {
-        days: (r.Days || "").split(","),
-        paid: +r.Paid || 0,
-        arrears: +r.Arrears || 0,
-        date: r.Date || ""
+    if(!w){
+      w = {
+        name:r.Name,
+        number:r.Phone||"",
+        id:r.ID||"",
+        type:r.Type||"",
+        rate:+r.Rate||0,
+        weeks:{}
       };
-    });
+      workers.push(w);
+    }
 
-    render();
+    w.weeks[r.Week] = {
+      days:(r.Days||"").split(","),
+      paid:+r.Paid||0,
+      arrears:+r.Arrears||0,
+      date:r.Date||""
+    };
+  });
 
-  } catch(e){
-    console.error(e);
-    alert("Failed to load data");
-  }
+  render();
 }
-
 window.onload = load;
 
 /* SAVE */
 async function save(w, wd){
-  await fetch(API_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      action: "update",
-      name: w.name,
-      phone: w.number,
-      id: w.id,
-      type: w.type,
-      rate: w.rate,
-      week: currentWeek,
-      days: wd.days.join(","),
-      paid: wd.paid,
-      arrears: wd.arrears,
-      date: wd.date || new Date().toISOString().split("T")[0]
+  await fetch(API_URL,{
+    method:"POST",
+    mode:"no-cors",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      action:"update",
+      name:w.name,
+      phone:w.number,
+      id:w.id,
+      type:w.type,
+      rate:w.rate,
+      week:currentWeek,
+      days:wd.days.join(","),
+      paid:wd.paid,
+      arrears:wd.arrears,
+      date:wd.date||new Date().toISOString().split("T")[0]
     })
   });
 
-  setTimeout(load, 600);
+  setTimeout(load,500);
 }
 
 /* DELETE */
 async function deleteWorker(name){
-  if(!confirm("Delete " + name + "?")) return;
+  if(!confirm("Delete "+name+"?")) return;
 
-  await fetch(API_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({action:"delete", name})
+  await fetch(API_URL,{
+    method:"POST",
+    mode:"no-cors",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({action:"delete",name})
   });
 
-  setTimeout(load, 600);
+  setTimeout(load,500);
 }
 
 /* WEEK DATA */
 function getWeekData(w, week){
+
   if(!w.weeks[week]){
+
+    let prev = w.weeks[week-1];
+    let carry = 0;
+
+    if(prev){
+      let totalPrev = calculateTotal(w, prev);
+      carry = (totalPrev + prev.arrears) - prev.paid;
+    }
+
     w.weeks[week] = {
-      days: ["","","","","","",""],
-      paid: 0,
-      arrears: 0,
-      date: ""
+      days:["","","","","","",""],
+      paid:0,
+      arrears:carry,
+      date:""
     };
   }
+
   return w.weeks[week];
 }
 
-/* ADD WORKER */
+/* ADD */
 function addWorker(){
   let name = nameInput.value.trim();
   if(!name) return alert("Name required");
 
-  let w = {
+  let exists = workers.find(w=>w.name.toLowerCase()===name.toLowerCase());
+  if(exists) return alert("Worker already exists");
+
+  let w={
     name,
-    number: number.value,
-    id: idNumber.value,
-    type: type.value,
-    rate: +rate.value,
-    weeks: {}
+    number:number.value,
+    id:idNumber.value,
+    type:type.value,
+    rate:+rate.value,
+    weeks:{}
   };
 
   workers.push(w);
-  save(w, getWeekData(w, currentWeek));
+  save(w,getWeekData(w,currentWeek));
 }
 
-/* RENDER */
-function render(){
-  let totalPaid = 0;
-  let totalDue = 0;
-
-  skilledTable.querySelector("tbody").innerHTML = "";
-  casualTable.querySelector("tbody").innerHTML = "";
-
-  workers.forEach((w, i) => {
-
-    let wd = getWeekData(w, currentWeek);
-
-    let total = 0;
-    let days = 0;
-
-    let row = `<tr>
-      <td>${w.name}</td>
-      <td>${w.number}</td>
-      <td>${w.id}</td>
-      <td>${formatMoney(w.rate)}</td>`;
-
-    wd.days.forEach((d, di) => {
-      d = normalize(d);
-
-      row += `<td>
-        <input value="${d}" onchange="updateDay(${i},${di},this.value)">
-      </td>`;
-
-      if(d === "y"){ total += w.rate; days++; }
-      if(d === "y/n"){ total += w.rate/2; days += 0.5; }
-    });
-
-    let arrears = wd.arrears || 0;
-    let totalDueW = total + arrears;
-
-    let balance = totalDueW - wd.paid;
-
-    totalPaid += wd.paid;
-    totalDue += totalDueW;
-
-    row += `
-      <td>${days}</td>
-      <td>${formatMoney(total)}</td>
-      <td>${formatMoney(arrears)}</td>
-      <td>${formatMoney(totalDueW)}</td>
-      <td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
-      <td>${wd.date || ""}</td>
-      <td>${formatMoney(balance)}</td>
-      <td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
-    </tr>`;
-
-    (w.type === "Skilled" ? skilledTable : casualTable)
-      .querySelector("tbody").innerHTML += row;
-  });
-
-  summary.innerText =
-    "Total Due: " + formatMoney(totalDue) +
-    " | Paid: " + formatMoney(totalPaid) +
-    " | Balance: " + formatMoney(totalDue - totalPaid);
+/* EDIT */
+function editField(i, field, val){
+  workers[i][field] = field==="rate" ? +val : val;
+  save(workers[i], getWeekData(workers[i], currentWeek));
 }
 
 /* UPDATE */
@@ -372,6 +331,117 @@ function updatePaid(i, val){
   wd.paid = +val || 0;
   wd.date = new Date().toISOString().split("T")[0];
   save(workers[i], wd);
+}
+
+/* RENDER */
+function render(){
+
+  let totalPaid=0, totalDue=0;
+
+  skilledTable.querySelector("tbody").innerHTML="";
+  casualTable.querySelector("tbody").innerHTML="";
+
+  workers.forEach((w,i)=>{
+
+    let wd = getWeekData(w,currentWeek);
+
+    let total = calculateTotal(w,wd);
+    let arrears = wd.arrears||0;
+    let totalDueW = total + arrears;
+    let balance = totalDueW - wd.paid;
+
+    totalPaid += wd.paid;
+    totalDue += totalDueW;
+
+    let days=0;
+
+    let row=`<tr>
+<td><input value="${w.name}" onchange="editField(${i},'name',this.value)"></td>
+<td><input value="${w.number}" onchange="editField(${i},'number',this.value)"></td>
+<td><input value="${w.id}" onchange="editField(${i},'id',this.value)"></td>
+<td><input value="${w.rate}" onchange="editField(${i},'rate',this.value)"></td>`;
+
+    wd.days.forEach((d,di)=>{
+      d=normalize(d);
+      row+=`<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`;
+      if(d==="y") days++;
+      if(d==="y/n") days+=0.5;
+    });
+
+    row+=`
+<td>${days}</td>
+<td>${formatMoney(total)}</td>
+<td>${formatMoney(arrears)}</td>
+<td>${formatMoney(totalDueW)}</td>
+<td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
+<td>${wd.date||""}</td>
+<td>${formatMoney(balance)}</td>
+<td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
+</tr>`;
+
+    (w.type==="Skilled"?skilledTable:casualTable)
+    .querySelector("tbody").innerHTML += row;
+  });
+
+  summary.innerText =
+  "Total Due: "+formatMoney(totalDue)+
+  " | Paid: "+formatMoney(totalPaid)+
+  " | Balance: "+formatMoney(totalDue-totalPaid);
+}
+
+/* PDF */
+async function generatePDF(){
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  let y=10;
+
+  doc.setFontSize(18);
+  doc.text("Labour Report - Week "+currentWeek,10,y);
+
+  y+=10;
+
+  function section(title,type){
+    doc.setFontSize(14);
+    doc.text(title,10,y);
+    y+=6;
+
+    doc.setFontSize(8);
+
+    workers.filter(w=>w.type===type).forEach(w=>{
+
+      let wd = getWeekData(w,currentWeek);
+      let total = calculateTotal(w,wd);
+      let totalDue = total + wd.arrears;
+      let balance = totalDue - wd.paid;
+
+      let txt = `
+${w.name} (${w.number})
+Rate: ${w.rate}
+Days: ${wd.days.join(" ")}
+Total: ${total}
+Arrears: ${wd.arrears}
+Paid: ${wd.paid}
+Balance: ${balance}
+------------------------`;
+
+      let lines = doc.splitTextToSize(txt,180);
+      doc.text(lines,10,y);
+
+      y+=lines.length*5;
+
+      if(y>270){
+        doc.addPage();
+        y=10;
+      }
+    });
+  }
+
+  section("Skilled Workers","Skilled");
+  section("Casual Workers","Casual");
+
+  doc.save("Week_"+currentWeek+"_Report.pdf");
 }
 
 </script>

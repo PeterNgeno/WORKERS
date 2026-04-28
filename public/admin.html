@@ -1,23 +1,16 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Labour Management System</title><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script><style>
+<title>Labour Management System</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
 body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
 h1 { text-align:center; }
 .section { margin-top:20px; }
-
-input, select, button {
-  padding:6px;
-  margin:3px;
-}
-
-button {
-  background:#2563eb;
-  color:white;
-  border:none;
-  cursor:pointer;
-}
 
 table {
   width:100%;
@@ -34,173 +27,354 @@ th, td {
 
 th { background:#1e3a8a; }
 
+input, select {
+  padding:5px;
+  margin:3px;
+  width:110px;
+}
+
+button {
+  padding:6px;
+  background:#2563eb;
+  color:white;
+  border:none;
+  cursor:pointer;
+  margin:2px;
+}
+
+.header-box {
+  background:#1e3a8a;
+  padding:10px;
+  border-radius:10px;
+}
+
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
 
-canvas { background:white; border-radius:10px; margin-top:10px; }
+canvas {
+  background:white;
+  border-radius:10px;
+  margin-top:10px;
+}
+</style>
+</head>
 
-</style></head><body><h1>Labour Management System</h1><div class="section">
-<label><input type="checkbox" onclick="openAdmin()"> Admin Page</label>
-</div><div class="section">
+<body>
+
+<h1>Labour Management System</h1>
+
+<label>
+<input type="checkbox" onchange="toggleAdmin(this.checked)">
+ Admin View
+</label>
+
+<!-- WEEK CONTROL -->
+<div class="section header-box">
 <h3>Week Control</h3>
 <input id="weekNumber" type="number" placeholder="Week (1,2,3...)">
 <button onclick="setWeek()">Set Week</button>
-<button onclick="exportPDF()">Export Week PDF</button>
 <p id="weekDisplay"></p>
-</div><div class="section">
-<h3>Add / Edit Worker</h3>
-<input id="name">
-<input id="phone">
-<input id="idno">
+</div>
+
+<!-- ADD WORKER -->
+<div class="section">
+<h3>Add Worker</h3>
+
+<input id="nameInput" placeholder="Name">
+<input id="number" placeholder="Phone">
+<input id="idNumber" placeholder="ID">
+
 <select id="type">
-<option>Skilled</option>
-<option>Casual</option>
+<option value="Skilled">Skilled</option>
+<option value="Casual">Casual</option>
 </select>
+
 <input id="rate" placeholder="Rate">
-<button onclick="addOrUpdate()">Save Worker</button>
-</div><div class="section">
-<h3>Workers</h3>
-<table id="table">
+
+<button onclick="addWorker()">Add Worker</button>
+</div>
+
+<!-- SUMMARY -->
+<div class="section">
+<h3>Summary</h3>
+<p id="summary"></p>
+</div>
+
+<!-- TABLES -->
+<div class="section">
+<h3>Skilled Labourers</h3>
+<table id="skilledTable">
 <thead>
 <tr>
-<th>Name</th><th>Phone</th><th>ID</th><th>Type</th><th>Rate</th>
-<th>Days</th><th>Days Count</th><th>Total</th><th>Arrears</th><th>Paid</th><th>Balance</th>
+<th>Name</th>
+<th>Phone</th>
+<th>ID</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
 <th class="admin-only">Delete</th>
 </tr>
 </thead>
 <tbody></tbody>
 </table>
-</div><script>
+</div>
+
+<div class="section">
+<h3>Casual Labourers</h3>
+<table id="casualTable">
+<thead>
+<tr>
+<th>Name</th>
+<th>Phone</th>
+<th>ID</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
+<th class="admin-only">Delete</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<script>
+
 const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf02o2JIkmTBfq1iBx3mFMXlp13_nOp046olQIScujDBdx/exec";
 
 let workers = [];
 let currentWeek = 1;
+let isAdmin = false;
 
-function openAdmin(){ window.location.href="admin.html"; }
-
-function setWeek(){
-  currentWeek = +document.getElementById("weekNumber").value || 1;
-  document.getElementById("weekDisplay").innerText = "Week " + currentWeek;
-  render();
+function formatMoney(n){
+  return "Ksh " + (n || 0).toLocaleString();
 }
 
-function normalize(w){
-  if(!w) return {days:["","","","","","",""],paid:0,arrears:0};
-  return w;
+function normalize(d){
+  if(!d) return "";
+  d = d.toString().toLowerCase().trim();
+  if(d === "y") return "y";
+  if(d === "n") return "n";
+  if(d === "y/n") return "y/n";
+  return "";
 }
 
-/* NO DUPLICATES PER WEEK */
-function findWorker(name){
-  return workers.find(w => w.name.toLowerCase() === name.toLowerCase());
-}
-
-function addOrUpdate(){
-  let name = document.getElementById("name").value;
-  if(!name) return alert("Name required");
-
-  let existing = findWorker(name);
-
-  if(!existing){
-    workers.push({
-      name,
-      phone: phone.value,
-      id: idno.value,
-      type: type.value,
-      rate: +rate.value || 0,
-      weeks: {}
-    });
+/* ADMIN */
+function toggleAdmin(s){
+  if(s){
+    let p = prompt("Password:");
+    if(p === "@Adminpage1234"){
+      document.body.classList.add("admin");
+      isAdmin = true;
+    } else {
+      alert("Wrong password");
+      document.querySelector("input[type=checkbox]").checked = false;
+    }
   } else {
-    existing.phone = phone.value;
-    existing.id = idno.value;
-    existing.type = type.value;
-    existing.rate = +rate.value || 0;
+    document.body.classList.remove("admin");
+    isAdmin = false;
   }
-
-  saveAll();
-}
-
-function getWeek(w){
-  if(!w.weeks[currentWeek]){
-    w.weeks[currentWeek] = {days:["","","","","","",""],paid:0,arrears:0};
-  }
-  return w.weeks[currentWeek];
-}
-
-async function saveAll(){
-  await fetch(API_URL,{method:"POST",mode:"no-cors",body:JSON.stringify(workers)});
-  setTimeout(load,500);
-}
-
-async function load(){
-  let res = await fetch(API_URL);
-  let data = await res.json();
-  workers = data || [];
   render();
+}
+
+/* WEEK */
+function setWeek(){
+  let w = +document.getElementById("weekNumber").value;
+  if(!w) return alert("Enter valid week number");
+  currentWeek = w;
+  document.getElementById("weekDisplay").innerText = "Current Week: " + w;
+  render();
+}
+
+/* LOAD */
+async function load(){
+  try{
+    let res = await fetch(API_URL);
+    let data = await res.json();
+
+    workers = [];
+
+    data.forEach(r => {
+      if(!r.Name) return;
+
+      let w = workers.find(x => x.name === r.Name);
+
+      if(!w){
+        w = {
+          name: r.Name,
+          number: r.Phone || "",
+          id: r.ID || "",
+          type: r.Type || "",
+          rate: +r.Rate || 0,
+          weeks: {}
+        };
+        workers.push(w);
+      }
+
+      w.weeks[r.Week] = {
+        days: (r.Days || "").split(","),
+        paid: +r.Paid || 0,
+        arrears: +r.Arrears || 0,
+        date: r.Date || ""
+      };
+    });
+
+    render();
+
+  } catch(e){
+    console.error(e);
+    alert("Failed to load data");
+  }
 }
 
 window.onload = load;
 
-function calc(wd, rate){
-  let total=0,days=0;
-  wd.days.forEach(d=>{
-    if(d=="y"){total+=rate;days++;}
-    if(d=="y/n"){total+=rate/2;days+=0.5;}
+/* SAVE */
+async function save(w, wd){
+  await fetch(API_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      action: "update",
+      name: w.name,
+      phone: w.number,
+      id: w.id,
+      type: w.type,
+      rate: w.rate,
+      week: currentWeek,
+      days: wd.days.join(","),
+      paid: wd.paid,
+      arrears: wd.arrears,
+      date: wd.date || new Date().toISOString().split("T")[0]
+    })
   });
-  return {total,days};
+
+  setTimeout(load, 600);
 }
 
+/* DELETE */
+async function deleteWorker(name){
+  if(!confirm("Delete " + name + "?")) return;
+
+  await fetch(API_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({action:"delete", name})
+  });
+
+  setTimeout(load, 600);
+}
+
+/* WEEK DATA */
+function getWeekData(w, week){
+  if(!w.weeks[week]){
+    w.weeks[week] = {
+      days: ["","","","","","",""],
+      paid: 0,
+      arrears: 0,
+      date: ""
+    };
+  }
+  return w.weeks[week];
+}
+
+/* ADD WORKER */
+function addWorker(){
+  let name = nameInput.value.trim();
+  if(!name) return alert("Name required");
+
+  let w = {
+    name,
+    number: number.value,
+    id: idNumber.value,
+    type: type.value,
+    rate: +rate.value,
+    weeks: {}
+  };
+
+  workers.push(w);
+  save(w, getWeekData(w, currentWeek));
+}
+
+/* RENDER */
 function render(){
-  let tbody = document.querySelector("tbody");
-  tbody.innerHTML="";
+  let totalPaid = 0;
+  let totalDue = 0;
 
-  workers.forEach((w,i)=>{
-    let wd = normalize(getWeek(w));
-    let calcRes = calc(wd,w.rate);
+  skilledTable.querySelector("tbody").innerHTML = "";
+  casualTable.querySelector("tbody").innerHTML = "";
 
-    let balance = (calcRes.total + (wd.arrears||0)) - (wd.paid||0);
+  workers.forEach((w, i) => {
 
-    let row=`<tr>
-    <td contenteditable onblur="edit(${i},'name',this.innerText)">${w.name}</td>
-    <td contenteditable onblur="edit(${i},'phone',this.innerText)">${w.phone||''}</td>
-    <td contenteditable onblur="edit(${i},'id',this.innerText)">${w.id||''}</td>
-    <td>${w.type}</td>
-    <td contenteditable onblur="edit(${i},'rate',this.innerText)">${w.rate}</td>
-    <td>${wd.days.join(' ')}</td>
-    <td>${calcRes.days}</td>
-    <td>${calcRes.total}</td>
-    <td contenteditable onblur="editWeek(${i},'arrears',this.innerText)">${wd.arrears||0}</td>
-    <td contenteditable onblur="editWeek(${i},'paid',this.innerText)">${wd.paid||0}</td>
-    <td>${balance}</td>
-    <td class="admin-only"><button onclick="del(${i})">X</button></td>
+    let wd = getWeekData(w, currentWeek);
+
+    let total = 0;
+    let days = 0;
+
+    let row = `<tr>
+      <td>${w.name}</td>
+      <td>${w.number}</td>
+      <td>${w.id}</td>
+      <td>${formatMoney(w.rate)}</td>`;
+
+    wd.days.forEach((d, di) => {
+      d = normalize(d);
+
+      row += `<td>
+        <input value="${d}" onchange="updateDay(${i},${di},this.value)">
+      </td>`;
+
+      if(d === "y"){ total += w.rate; days++; }
+      if(d === "y/n"){ total += w.rate/2; days += 0.5; }
+    });
+
+    let arrears = wd.arrears || 0;
+    let totalDueW = total + arrears;
+
+    let balance = totalDueW - wd.paid;
+
+    totalPaid += wd.paid;
+    totalDue += totalDueW;
+
+    row += `
+      <td>${days}</td>
+      <td>${formatMoney(total)}</td>
+      <td>${formatMoney(arrears)}</td>
+      <td>${formatMoney(totalDueW)}</td>
+      <td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
+      <td>${wd.date || ""}</td>
+      <td>${formatMoney(balance)}</td>
+      <td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
     </tr>`;
 
-    tbody.innerHTML += row;
-  });
-}
-
-function edit(i,key,val){ workers[i][key]=val; saveAll(); }
-function editWeek(i,key,val){ getWeek(workers[i])[key]=+val||0; saveAll(); }
-function del(i){ workers.splice(i,1); saveAll(); }
-
-/* PDF EXPORT MAGAZINE STYLE */
-function exportPDF(){
-  const { jsPDF } = window.jspdf;
-  let doc = new jsPDF();
-
-  doc.setFontSize(16);
-  doc.text("LABOUR WEEK " + currentWeek, 10, 10);
-
-  let y=20;
-
-  workers.forEach(w=>{
-    let wd = getWeek(w);
-    doc.setFontSize(10);
-    doc.text(`${w.name} | ${w.type} | Rate ${w.rate} | Paid ${wd.paid||0} | Arrears ${wd.arrears||0}`,10,y);
-    y+=7;
+    (w.type === "Skilled" ? skilledTable : casualTable)
+      .querySelector("tbody").innerHTML += row;
   });
 
-  doc.save("week_"+currentWeek+".pdf");
+  summary.innerText =
+    "Total Due: " + formatMoney(totalDue) +
+    " | Paid: " + formatMoney(totalPaid) +
+    " | Balance: " + formatMoney(totalDue - totalPaid);
 }
 
-</script></body>
+/* UPDATE */
+function updateDay(i, di, val){
+  let wd = getWeekData(workers[i], currentWeek);
+  wd.days[di] = val;
+  save(workers[i], wd);
+}
+
+function updatePaid(i, val){
+  let wd = getWeekData(workers[i], currentWeek);
+  wd.paid = +val || 0;
+  wd.date = new Date().toISOString().split("T")[0];
+  save(workers[i], wd);
+}
+
+</script>
+
+</body>
 </html>

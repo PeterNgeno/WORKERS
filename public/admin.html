@@ -11,23 +11,51 @@
 body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
 h1 { text-align:center; }
 .section { margin-top:20px; }
-table { width:100%; border-collapse: collapse; margin-top:10px; font-size:12px; }
-th, td { border:1px solid #fff; padding:5px; text-align:center; }
+
+table {
+  width:100%;
+  border-collapse: collapse;
+  margin-top:10px;
+  font-size:12px;
+}
+
+th, td {
+  border:1px solid #fff;
+  padding:5px;
+  text-align:center;
+}
+
 th { background:#1e3a8a; }
-input, select { padding:5px; margin:3px; width:90px;}
-button { padding:6px; background:#2563eb; color:white; border:none; cursor:pointer; margin:2px;}
-.header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
+
+input, select {
+  padding:5px;
+  margin:3px;
+  width:110px;
+}
+
+button {
+  padding:6px;
+  background:#2563eb;
+  color:white;
+  border:none;
+  cursor:pointer;
+  margin:2px;
+}
+
+.header-box {
+  background:#1e3a8a;
+  padding:10px;
+  border-radius:10px;
+}
 
 .admin-only { display:none; }
 body.admin .admin-only { display:table-cell; }
 
-body:not(.admin) input,
-body:not(.admin) select,
-body:not(.admin) button {
-  display:none;
+canvas {
+  background:white;
+  border-radius:10px;
+  margin-top:10px;
 }
-
-canvas { background:white; border-radius:10px; margin-top:10px; }
 </style>
 </head>
 
@@ -35,45 +63,52 @@ canvas { background:white; border-radius:10px; margin-top:10px; }
 
 <h1>Labour Management System</h1>
 
-<label><input type="checkbox" onchange="toggleAdmin(this.checked)"> Admin View</label>
+<label>
+<input type="checkbox" onchange="toggleAdmin(this.checked)">
+ Admin View
+</label>
 
+<!-- WEEK CONTROL -->
 <div class="section header-box">
 <h3>Week Control</h3>
-<input id="weekNumber" type="number" placeholder="Week">
+<input id="weekNumber" type="number" placeholder="Week (1,2,3...)">
 <button onclick="setWeek()">Set Week</button>
 <p id="weekDisplay"></p>
 </div>
 
+<!-- ADD WORKER -->
 <div class="section">
 <h3>Add Worker</h3>
+
 <input id="nameInput" placeholder="Name">
 <input id="number" placeholder="Phone">
 <input id="idNumber" placeholder="ID">
+
 <select id="type">
 <option value="Skilled">Skilled</option>
 <option value="Casual">Casual</option>
 </select>
+
 <input id="rate" placeholder="Rate">
-<button onclick="addWorker()">Add</button>
+
+<button onclick="addWorker()">Add Worker</button>
 </div>
 
+<!-- SUMMARY -->
 <div class="section">
 <h3>Summary</h3>
 <p id="summary"></p>
 </div>
 
-<div class="section">
-<h3>Analytics Dashboard</h3>
-<canvas id="weeklyChart"></canvas>
-<canvas id="attendanceChart"></canvas>
-</div>
-
+<!-- TABLES -->
 <div class="section">
 <h3>Skilled Labourers</h3>
 <table id="skilledTable">
 <thead>
 <tr>
-<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
+<th>Name</th>
+<th>Phone</th>
+<th>ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
@@ -90,7 +125,9 @@ canvas { background:white; border-radius:10px; margin-top:10px; }
 <table id="casualTable">
 <thead>
 <tr>
-<th>Name</th><th class="admin-only">Phone</th><th class="admin-only">ID</th>
+<th>Name</th>
+<th>Phone</th>
+<th>ID</th>
 <th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
@@ -109,9 +146,6 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf
 let workers = [];
 let currentWeek = 1;
 let isAdmin = false;
-
-let attendanceChart = null;
-let weeklyChart = null;
 
 function formatMoney(n){
   return "Ksh " + (n || 0).toLocaleString();
@@ -147,13 +181,13 @@ function toggleAdmin(s){
 /* WEEK */
 function setWeek(){
   let w = +document.getElementById("weekNumber").value;
-  if(!w) return alert("Enter valid week");
+  if(!w) return alert("Enter valid week number");
   currentWeek = w;
   document.getElementById("weekDisplay").innerText = "Current Week: " + w;
   render();
 }
 
-/* LOAD FROM SHEET1 + SHEET2 (backend handles separation) */
+/* LOAD */
 async function load(){
   try{
     let res = await fetch(API_URL);
@@ -190,7 +224,7 @@ async function load(){
 
   } catch(e){
     console.error(e);
-    alert("Failed to load data. Check backend.");
+    alert("Failed to load data");
   }
 }
 
@@ -217,7 +251,7 @@ async function save(w, wd){
     })
   });
 
-  setTimeout(load, 800);
+  setTimeout(load, 600);
 }
 
 /* DELETE */
@@ -228,10 +262,10 @@ async function deleteWorker(name){
     method: "POST",
     mode: "no-cors",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ action: "delete", name })
+    body: JSON.stringify({action:"delete", name})
   });
 
-  setTimeout(load, 800);
+  setTimeout(load, 600);
 }
 
 /* WEEK DATA */
@@ -247,7 +281,7 @@ function getWeekData(w, week){
   return w.weeks[week];
 }
 
-/* ADD */
+/* ADD WORKER */
 function addWorker(){
   let name = nameInput.value.trim();
   if(!name) return alert("Name required");
@@ -281,17 +315,17 @@ function render(){
     let days = 0;
 
     let row = `<tr>
-    <td>${w.name}</td>
-    <td class="admin-only">${w.number}</td>
-    <td class="admin-only">${w.id}</td>
-    <td>${formatMoney(w.rate)}</td>`;
+      <td>${w.name}</td>
+      <td>${w.number}</td>
+      <td>${w.id}</td>
+      <td>${formatMoney(w.rate)}</td>`;
 
     wd.days.forEach((d, di) => {
       d = normalize(d);
 
-      row += isAdmin
-        ? `<td><input value="${d}" onchange="updateDay(${i},${di},this.value)"></td>`
-        : `<td>${d}</td>`;
+      row += `<td>
+        <input value="${d}" onchange="updateDay(${i},${di},this.value)">
+      </td>`;
 
       if(d === "y"){ total += w.rate; days++; }
       if(d === "y/n"){ total += w.rate/2; days += 0.5; }
@@ -299,7 +333,6 @@ function render(){
 
     let arrears = wd.arrears || 0;
     let totalDueW = total + arrears;
-    wd.totalDue = totalDueW;
 
     let balance = totalDueW - wd.paid;
 
@@ -307,14 +340,14 @@ function render(){
     totalDue += totalDueW;
 
     row += `
-    <td>${days}</td>
-    <td>${formatMoney(total)}</td>
-    <td>${formatMoney(arrears)}</td>
-    <td>${formatMoney(totalDueW)}</td>
-    <td>${isAdmin ? `<input value="${wd.paid}" onchange="updatePaid(${i},this.value)">` : formatMoney(wd.paid)}</td>
-    <td>${wd.date || ""}</td>
-    <td>${formatMoney(balance)}</td>
-    <td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
+      <td>${days}</td>
+      <td>${formatMoney(total)}</td>
+      <td>${formatMoney(arrears)}</td>
+      <td>${formatMoney(totalDueW)}</td>
+      <td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
+      <td>${wd.date || ""}</td>
+      <td>${formatMoney(balance)}</td>
+      <td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
     </tr>`;
 
     (w.type === "Skilled" ? skilledTable : casualTable)

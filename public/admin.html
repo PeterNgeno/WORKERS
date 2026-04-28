@@ -50,6 +50,10 @@ button {
   background:#0ea5e9;
 }
 
+.selected{
+  background:red !important;
+}
+
 .header-box {
   background:#1e3a8a;
   padding:10px;
@@ -70,11 +74,10 @@ body.admin .admin-only { display:table-cell; }
  Admin View
 </label>
 
-<!-- PROJECT HEADER -->
 <div class="section header-box">
 <h3>Project Details</h3>
 
-<input id="companyTitle" placeholder="Company Title (Auto: CONSTRUCTIONS)">
+<input id="companyTitle" placeholder="Company Title">
 <input id="venue" placeholder="Venue">
 <input id="projectTitle" placeholder="Project Title">
 <input id="startDate" type="date">
@@ -136,14 +139,12 @@ body.admin .admin-only { display:table-cell; }
 
 <script>
 
-// 🔥 AUTO DEFAULT TITLE
 document.getElementById("companyTitle").value = "CONSTRUCTIONS";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf02o2JIkmTBfq1iBx3mFMXlp13_nOp046olQIScujDBdx/exec";
 
 let workers = [];
 let currentWeek = 1;
-let isAdmin = false;
 
 function formatMoney(n){
   return "Ksh " + (n || 0).toLocaleString();
@@ -152,57 +153,37 @@ function formatMoney(n){
 function normalize(d){
   if(!d) return "";
   d = d.toLowerCase().trim();
-  if(d === "y") return "y";
-  if(d === "n") return "n";
-  if(d === "y/n") return "y/n";
+  if(d==="y"||d==="n"||d==="y/n") return d;
   return "";
 }
 
-/* DAY BUTTON CLICK */
+/* DAY CLICK */
 function setDay(i, di, val){
   let wd = getWeekData(workers[i], currentWeek);
   wd.days[di] = val;
   save(workers[i], wd);
 }
 
-/* ADMIN */
-function toggleAdmin(s){
-  if(s){
-    let p = prompt("Password:");
-    if(p === "@Adminpage1234"){
-      document.body.classList.add("admin");
-      isAdmin = true;
-    } else {
-      alert("Wrong password");
-      document.querySelector("input[type=checkbox]").checked = false;
-    }
-  } else {
-    document.body.classList.remove("admin");
-    isAdmin = false;
-  }
-  render();
-}
-
-/* WEEK */
-function setWeek(){
-  let w = +weekNumber.value;
-  if(!w) return alert("Enter valid week");
-  currentWeek = w;
-  weekDisplay.innerText = "Current Week: " + w;
-  render();
-}
-
+/* CALCULATE */
 function calculateTotal(w, wd){
-  let total = 0;
+  let total=0;
   wd.days.forEach(d=>{
-    d = normalize(d);
-    if(d==="y") total += w.rate;
-    if(d==="y/n") total += w.rate/2;
+    if(d==="y") total+=w.rate;
+    if(d==="y/n") total+=w.rate/2;
   });
   return total;
 }
 
-/* LOAD (UNCHANGED) */
+function calculateDays(wd){
+  let days=0;
+  wd.days.forEach(d=>{
+    if(d==="y") days+=1;
+    if(d==="y/n") days+=0.5;
+  });
+  return days;
+}
+
+/* LOAD */
 async function load(){
   let res = await fetch(API_URL);
   let data = await res.json();
@@ -229,7 +210,7 @@ async function load(){
 }
 window.onload = load;
 
-/* SAVE (UNCHANGED) */
+/* SAVE */
 async function save(w, wd){
   await fetch(API_URL,{
     method:"POST",
@@ -249,57 +230,37 @@ async function save(w, wd){
       date:wd.date||new Date().toISOString().split("T")[0]
     })
   });
-
-  setTimeout(load,500);
+  setTimeout(load,400);
 }
 
-/* DELETE */
-async function deleteWorker(name){
-  if(!confirm("Delete "+name+"?")) return;
-
-  await fetch(API_URL,{
-    method:"POST",
-    mode:"no-cors",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({action:"delete",name})
-  });
-
-  setTimeout(load,500);
-}
-
-/* WEEK DATA (UNCHANGED) */
+/* WEEK DATA */
 function getWeekData(w, week){
   if(!w.weeks[week]){
-    let prev = w.weeks[week-1];
-    let carry = 0;
+    let prev=w.weeks[week-1];
+    let carry=0;
     if(prev){
-      let totalPrev = calculateTotal(w, prev);
-      carry = (totalPrev + prev.arrears) - prev.paid;
+      let totalPrev=calculateTotal(w,prev);
+      carry=(totalPrev+prev.arrears)-prev.paid;
     }
-    w.weeks[week] = {
-      days:["","","","","","",""],
-      paid:0,
-      arrears:carry,
-      date:""
-    };
+    w.weeks[week]={days:["","","","","","",""],paid:0,arrears:carry,date:""};
   }
   return w.weeks[week];
 }
 
-/* ADD WORKER (UNCHANGED) */
+/* ADD */
 function addWorker(){
-  let name = nameInput.value.trim();
+  let name=nameInput.value.trim();
   if(!name) return alert("Name required");
 
-  let exists = workers.find(w=>w.name.toLowerCase()===name.toLowerCase());
-  if(exists) return alert("Worker already exists");
+  let exists=workers.find(w=>w.name.toLowerCase()===name.toLowerCase());
+  if(exists) return alert("Worker exists");
 
   let w={name,number:number.value,id:idNumber.value,type:type.value,rate:+rate.value,weeks:{}};
   workers.push(w);
   save(w,getWeekData(w,currentWeek));
 }
 
-/* RENDER (ONLY DAY INPUT CHANGED TO BUTTONS) */
+/* RENDER */
 function render(){
 
   skilledTable.querySelector("tbody").innerHTML="";
@@ -307,10 +268,12 @@ function render(){
 
   workers.forEach((w,i)=>{
 
-    let wd = getWeekData(w,currentWeek);
-    let total = calculateTotal(w,wd);
-    let totalDue = total + wd.arrears;
-    let balance = totalDue - wd.paid;
+    let wd=getWeekData(w,currentWeek);
+
+    let total=calculateTotal(w,wd);
+    let days=calculateDays(wd);
+    let totalDue=total+wd.arrears;
+    let balance=totalDue-wd.paid;
 
     let row=`<tr>
 <td>${w.name}</td>
@@ -319,44 +282,49 @@ function render(){
 <td>${w.rate}</td>`;
 
     wd.days.forEach((d,di)=>{
+
+      let ySel = d==="y" ? "selected" : "";
+      let nSel = d==="n" ? "selected" : "";
+      let hSel = d==="y/n" ? "selected" : "";
+
       row+=`<td>
-        <button class="day-btn" onclick="setDay(${i},${di},'y')">Y</button>
-        <button class="day-btn" onclick="setDay(${i},${di},'n')">N</button>
-        <button class="day-btn" onclick="setDay(${i},${di},'y/n')">½</button>
+        <button class="day-btn ${ySel}" onclick="setDay(${i},${di},'y')">Y</button>
+        <button class="day-btn ${nSel}" onclick="setDay(${i},${di},'n')">N</button>
+        <button class="day-btn ${hSel}" onclick="setDay(${i},${di},'y/n')">½</button>
       </td>`;
     });
 
     row+=`
-<td>${wd.days.filter(d=>d==='y').length}</td>
+<td>${days}</td>
 <td>${formatMoney(total)}</td>
-<td>${formatMoney(wd.arrears)}</td>
+<td>${wd.arrears ? formatMoney(wd.arrears) : ""}</td>
 <td>${formatMoney(totalDue)}</td>
-<td>${wd.paid}</td>
+<td><input value="${wd.paid}" onchange="updatePaid(${i},this.value)"></td>
 <td>${wd.date||""}</td>
 <td>${formatMoney(balance)}</td>
 <td class="admin-only"><button onclick="deleteWorker('${w.name}')">X</button></td>
 </tr>`;
 
     (w.type==="Skilled"?skilledTable:casualTable)
-    .querySelector("tbody").innerHTML += row;
+    .querySelector("tbody").innerHTML+=row;
   });
 }
 
-/* PDF WITH HEADER */
-async function generatePDF(){
+function updatePaid(i,val){
+  let wd=getWeekData(workers[i],currentWeek);
+  wd.paid=+val||0;
+  wd.date=new Date().toISOString().split("T")[0];
+  save(workers[i],wd);
+}
 
+/* PDF */
+async function generatePDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
 
-  let title = companyTitle.value || "CONSTRUCTIONS";
-
-  doc.setFontSize(18);
-  doc.text(title,10,10);
-
-  doc.setFontSize(10);
+  doc.text(companyTitle.value,10,10);
   doc.text("Project: "+projectTitle.value,10,20);
   doc.text("Venue: "+venue.value,10,25);
-  doc.text("Start: "+startDate.value+"  End: "+endDate.value,10,30);
 
   doc.save("Week_Report.pdf");
 }

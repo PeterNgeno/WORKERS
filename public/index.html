@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labour Management System</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
+h1 { text-align:center; }
+.section { margin-top:20px; }
+table { width:100%; border-collapse: collapse; margin-top:10px; font-size:12px; }
+th, td { border:1px solid #fff; padding:5px; text-align:center; }
+th { background:#1e3a8a; }
+canvas { background:white; border-radius:10px; margin-top:10px; }
+.header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
+</style>
+</head>
+
+<body>
+
+<h1>Labour Management System</h1>
+
+<div class="section header-box">
+<h3>Week Control</h3>
+<p id="weekDisplay">Current Week: 1</p>
+</div>
+
+<div class="section">
+<h3>Summary</h3>
+<p id="summary"></p>
+</div>
+
+<div class="section">
+<h3>Analytics Dashboard</h3>
+<canvas id="weeklyChart"></canvas>
+<canvas id="attendanceChart"></canvas>
+</div>
+
+<div class="section">
+<h3>Skilled Labourers</h3>
+<table id="skilledTable">
+<thead>
+<tr>
+<th>Name</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section">
+<h3>Casual Labourers</h3>
+<table id="casualTable">
+<thead>
+<tr>
+<th>Name</th>
+<th>Rate</th>
+<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
+<th>Paid</th><th>Date</th><th>Balance</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbwp89tgfnL2PKqyvDwLxWtk3RmhwIdtkFktsDmNXf2hjBrhS8ZsYU-L80yLYal_916Czg/exec";
+
+let workers = [];
+let currentWeek = 1;
+let attendanceChart = null;
+let weeklyChart = null;
+
+function formatMoney(n){
+  return "Ksh " + (n || 0).toLocaleString();
+}
+
+function normalize(d){
+  if(!d) return "";
+  d = d.toString().toLowerCase().trim();
+  if(d==="y") return "y";
+  if(d==="n") return "n";
+  if(d==="y/n") return "y/n";
+  return "";
+}
+
+/* LOAD DATA */
+async function load(){
+  try{
+    let res = await fetch(API_URL);
+    let data = await res.json();
+
+    workers = [];
+
+    data.forEach(r=>{
+      if(!r.Name) return;
+
+      let w = workers.find(x=>x.name===r.Name);
+
+      if(!w){
+        w = {
+          name: r.Name,
+          type: r.Type,
+          rate: +r.Rate,
+          weeks: {}
+        };
+        workers.push(w);
+      }
+
+      w.weeks[r.Week] = {
+        days: (r.Days || "").split(","),
+        paid: +r.Paid || 0,
+        arrears: +r.Arrears || 0,
+        date: r.Date || ""
+      };
+    });
+
+    render();
+
+  } catch(e){
+    alert("Error loading data.");
+    console.error(e);
+  }
+}
+
+window.onload = load;
+
+/* GET WEEK DATA */
+function getWeekData(w, week){
+  if(!w.weeks[week]){
+    let prev = w.weeks[week-1];
+    let arrears = prev ? (prev.totalDue - prev.paid) : 0;
+
+    w.weeks[week] = {
+      days:['','','','','','',''],
+      paid:0,
+      arrears:arrears,
+      date:""
+    };
+  }
+  return w.weeks[week];
+}
+
+/* RENDER */
+function render(){
+  let totalPaid = 0;
+  let totalDue = 0;
+
+  let weeklyTotals = {};
+  let attendanceData = {};
+
+  skilledTable.querySelector("tbody").innerHTML = "";
+  casualTable.querySelector("tbody").innerHTML = "";
+
+  workers.forEach((w)=>{
+    let wd = getWeekData(w, currentWeek);
+
+    let total = 0;
+    let days = 0;
+
+    let row = `<tr>
+      <td>${w.name}</td>
+      <td>${formatMoney(w.rate)}</td>
+    `;
+
+    wd.days.forEach((d)=>{
+      d = normalize(d);
+
+      row += `<td>${d}</td>`;
+
+      if(d==="y"){ total += w.rate; days++; }
+      if(d==="y/n"){ total += w.rate/2; days += 0.5; }
+    });
+
+    let arrears = wd.arrears || 0;
+    let totalDueW = total + arrears;
+
+    totalDue += totalDueW;
+    totalPaid += wd.paid;
+
+    let balance = totalDueW - wd.paid;
+
+    attendanceData[w.name] = days;
+    weeklyTotals[currentWeek] = (weeklyTotals[currentWeek] || 0) + wd.paid;
+
+    row += `
+      <td>${days}</td>
+      <td>${formatMoney(total)}</td>
+      <td>${formatMoney(arrears)}</td>
+      <td>${formatMoney(totalDueW)}</td>
+      <td>${formatMoney(wd.paid)}</td>
+      <td>${wd.date || ""}</td>
+      <td>${formatMoney(balance)}</td>
+    </tr>`;
+
+    (w.type==="Skilled" ? skilledTable : casualTable)
+      .querySelector("tbody").innerHTML += row;
+  });
+
+  document.getElementById("summary").innerText =
+    "Total Due: " + formatMoney(totalDue) +
+    " | Paid: " + formatMoney(totalPaid) +
+    " | Balance: " + formatMoney(totalDue - totalPaid);
+
+  drawCharts(attendanceData, weeklyTotals);
+}
+
+/* CHARTS */
+function drawCharts(att, weekly){
+  if(attendanceChart) attendanceChart.destroy();
+  if(weeklyChart) weeklyChart.destroy();
+
+  attendanceChart = new Chart(document.getElementById("attendanceChart"), {
+    type: "bar",
+    data: {
+      labels: Object.keys(att),
+      datasets: [{
+        label: "Days Worked",
+        data: Object.values(att)
+      }]
+    }
+  });
+
+  weeklyChart = new Chart(document.getElementById("weeklyChart"), {
+    type: "line",
+    data: {
+      labels: Object.keys(weekly),
+      datasets: [{
+        label: "Weekly Payments",
+        data: Object.values(weekly)
+      }]
+    }
+  });
+}
+</script>
+
+</body>
+  </html>

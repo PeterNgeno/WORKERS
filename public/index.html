@@ -78,17 +78,10 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf
 
 let workers = [];
 
+/* 🔥 UPDATED ADMIN FUNCTION (LINK ONLY) */
 function toggleAdmin(state){
   if(state){
-    let pass = prompt("Enter Admin Password:");
-    if(pass === "@Adminpage1234"){
-      document.body.classList.add("admin");
-    } else {
-      alert("Wrong password");
-      document.querySelector("input[type=checkbox]").checked=false;
-    }
-  } else {
-    document.body.classList.remove("admin");
+    window.location.href = "admin.html";
   }
 }
 
@@ -118,7 +111,6 @@ async function load(){
     workers = [];
 
     data.forEach(r=>{
-      // 🔥 HANDLE ANY HEADER FORMAT
       let name = r.Name || r.name || r.NAME;
       if(!name) return;
 

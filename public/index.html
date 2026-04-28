@@ -32,22 +32,9 @@ body.admin .admin-only { display:block; }
  Admin Mode
 </label>
 
-<div class="section header-box">
-<h3>Week Control</h3>
-<p id="weekDisplay">Current Week: 1</p>
-</div>
-
 <div class="section">
 <h3>Summary</h3>
-<p id="summary"></p>
-</div>
-
-<div class="section admin-only">
-<h3>Export & Share</h3>
-<input id="workerName" placeholder="Enter Worker Name">
-<button onclick="exportSingle()">Export Worker PDF</button>
-<button onclick="exportAll('Skilled')">Export Skilled</button>
-<button onclick="exportAll('Casual')">Export Casual</button>
+<p id="summary">Loading...</p>
 </div>
 
 <div class="section">
@@ -64,7 +51,7 @@ body.admin .admin-only { display:block; }
 <th>Name</th><th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
-<th>Paid</th><th>Date</th><th>Balance</th>
+<th>Paid</th><th>Balance</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -79,7 +66,7 @@ body.admin .admin-only { display:block; }
 <th>Name</th><th>Rate</th>
 <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
 <th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
-<th>Paid</th><th>Date</th><th>Balance</th>
+<th>Paid</th><th>Balance</th>
 </tr>
 </thead>
 <tbody></tbody>
@@ -87,17 +74,10 @@ body.admin .admin-only { display:block; }
 </div>
 
 <script>
-const { jsPDF } = window.jspdf;
-
-/* ✅ YOUR NEW API */
 const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf02o2JIkmTBfq1iBx3mFMXlp13_nOp046olQIScujDBdx/exec";
 
 let workers = [];
-let currentWeek = 1;
-let attendanceChart = null;
-let weeklyChart = null;
 
-/* ADMIN */
 function toggleAdmin(state){
   if(state){
     let pass = prompt("Enter Admin Password:");
@@ -125,37 +105,40 @@ function normalize(d){
   return "";
 }
 
-/* ✅ LOAD FROM GOOGLE SHEET */
+/* 🔥 FIXED LOAD */
 async function load(){
   try{
     let res = await fetch(API_URL);
+    let text = await res.text();
 
-    let text = await res.text(); // 🔥 important debug
-    console.log("RAW RESPONSE:", text);
+    console.log("RAW:", text);
 
-    let data = JSON.parse(text); // parse manually
+    let data = JSON.parse(text);
 
     workers = [];
 
     data.forEach(r=>{
-      if(!r.Name) return;
+      // 🔥 HANDLE ANY HEADER FORMAT
+      let name = r.Name || r.name || r.NAME;
+      if(!name) return;
 
       workers.push({
-        name: r.Name,
-        type: r.Type,
-        rate: +r.Rate,
-        week: r.Week,
-        days: (r.Days || "").split(","),
-        paid: +r.Paid || 0,
-        arrears: +r.Arrears || 0
+        name: name,
+        type: r.Type || r.type || "",
+        rate: +(r.Rate || r.rate || 0),
+        days: (r.Days || r.days || "").split(","),
+        paid: +(r.Paid || r.paid || 0),
+        arrears: +(r.Arrears || r.arrears || 0)
       });
     });
+
+    console.log("WORKERS:", workers);
 
     render();
 
   }catch(e){
-    console.error("LOAD ERROR:", e);
-    alert("Failed to load data. Check Apps Script deployment.");
+    console.error("ERROR:", e);
+    alert("Data failed to load. Check console.");
   }
 }
 
@@ -164,103 +147,49 @@ window.onload = load;
 /* RENDER */
 function render(){
   let totalPaid=0,totalDue=0;
-  let weeklyTotals={}, attendanceData={};
 
   skilledTable.querySelector("tbody").innerHTML="";
   casualTable.querySelector("tbody").innerHTML="";
 
   workers.forEach(w=>{
-    if(w.week != currentWeek) return;
-
     let total=0,days=0;
 
     let row=`<tr><td>${w.name}</td><td>${formatMoney(w.rate)}</td>`;
 
-    w.days.forEach(d=>{
-      d=normalize(d);
+    for(let i=0;i<7;i++){
+      let d = normalize(w.days[i]);
       row+=`<td>${d}</td>`;
+
       if(d==="y"){ total+=w.rate; days++; }
       if(d==="y/n"){ total+=w.rate/2; days+=0.5; }
-    });
+    }
 
     let totalDueW=total+(w.arrears||0);
+    let balance=totalDueW-w.paid;
+
     totalDue+=totalDueW;
     totalPaid+=w.paid;
 
-    let balance=totalDueW-w.paid;
-
-    attendanceData[w.name]=days;
-    weeklyTotals[currentWeek]=(weeklyTotals[currentWeek]||0)+w.paid;
-
-    row+=`<td>${days}</td>
+    row+=`
+    <td>${days}</td>
     <td>${formatMoney(total)}</td>
     <td>${formatMoney(w.arrears)}</td>
     <td>${formatMoney(totalDueW)}</td>
     <td>${formatMoney(w.paid)}</td>
-    <td>-</td>
-    <td>${formatMoney(balance)}</td></tr>`;
+    <td>${formatMoney(balance)}</td>
+    </tr>`;
 
-    (w.type==="Skilled"?skilledTable:casualTable).querySelector("tbody").innerHTML+=row;
+    if((w.type||"").toLowerCase()==="skilled"){
+      skilledTable.querySelector("tbody").innerHTML+=row;
+    } else {
+      casualTable.querySelector("tbody").innerHTML+=row;
+    }
   });
 
-  summary.innerText=`Total Due: ${formatMoney(totalDue)} | Paid: ${formatMoney(totalPaid)} | Balance: ${formatMoney(totalDue-totalPaid)}`;
-
-  drawCharts(attendanceData, weeklyTotals);
-}
-
-/* EXPORT */
-function exportSingle(){
-  let name = workerName.value.trim().toLowerCase();
-  let list = workers.filter(w=>w.name.toLowerCase()===name);
-  if(list.length===0) return alert("Worker not found");
-  exportPDF(name, list);
-}
-
-function exportAll(type){
-  let grouped = {};
-  workers.filter(w=>w.type===type).forEach(w=>{
-    if(!grouped[w.name]) grouped[w.name]=[];
-    grouped[w.name].push(w);
-  });
-  Object.keys(grouped).forEach(name=>exportPDF(name, grouped[name]));
-}
-
-/* PDF */
-function exportPDF(name, records){
-  const doc=new jsPDF();
-
-  doc.setFillColor(30,58,138);
-  doc.rect(0,0,210,30,"F");
-
-  doc.setTextColor(255,255,255);
-  doc.text("LABOUR REPORT",105,15,{align:"center"});
-
-  doc.setTextColor(0,0,0);
-  doc.text("Name: "+name,10,40);
-
-  let y=50;
-  records.forEach(w=>{
-    doc.text(`Week ${w.week} | Paid: ${w.paid}`,10,y);
-    y+=10;
-  });
-
-  doc.save(name+"_report.pdf");
-}
-
-/* CHARTS */
-function drawCharts(att, weekly){
-  if(attendanceChart) attendanceChart.destroy();
-  if(weeklyChart) weeklyChart.destroy();
-
-  attendanceChart=new Chart(document.getElementById("attendanceChart"),{
-    type:"bar",
-    data:{labels:Object.keys(att),datasets:[{label:"Days",data:Object.values(att)}]}
-  });
-
-  weeklyChart=new Chart(document.getElementById("weeklyChart"),{
-    type:"line",
-    data:{labels:Object.keys(weekly),datasets:[{label:"Payments",data:Object.values(weekly)}]}
-  });
+  summary.innerText =
+    "Total Due: " + formatMoney(totalDue) +
+    " | Paid: " + formatMoney(totalPaid) +
+    " | Balance: " + formatMoney(totalDue-totalPaid);
 }
 </script>
 

@@ -157,14 +157,12 @@ function normalize(d){
   return "";
 }
 
-/* DAY CLICK */
 function setDay(i, di, val){
   let wd = getWeekData(workers[i], currentWeek);
   wd.days[di] = val;
   save(workers[i], wd);
 }
 
-/* CALCULATE */
 function calculateTotal(w, wd){
   let total=0;
   wd.days.forEach(d=>{
@@ -183,9 +181,9 @@ function calculateDays(wd){
   return days;
 }
 
-/* LOAD */
+/* LOAD (FIXED CACHE) */
 async function load(){
-  let res = await fetch(API_URL);
+  let res = await fetch(API_URL + "?t=" + new Date().getTime());
   let data = await res.json();
 
   workers = [];
@@ -210,30 +208,34 @@ async function load(){
 }
 window.onload = load;
 
-/* SAVE */
+/* SAVE (FIXED) */
 async function save(w, wd){
-  await fetch(API_URL,{
-    method:"POST",
-    mode:"no-cors",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      action:"update",
-      name:w.name,
-      phone:w.number,
-      id:w.id,
-      type:w.type,
-      rate:w.rate,
-      week:currentWeek,
-      days:wd.days.join(","),
-      paid:wd.paid,
-      arrears:wd.arrears,
-      date:wd.date||new Date().toISOString().split("T")[0]
-    })
-  });
-  setTimeout(load,400);
+  try{
+    await fetch(API_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        action:"update",
+        name:w.name,
+        phone:w.number,
+        id:w.id,
+        type:w.type,
+        rate:w.rate,
+        week:currentWeek,
+        days:wd.days.join(","),
+        paid:wd.paid,
+        arrears:wd.arrears,
+        date:wd.date||new Date().toISOString().split("T")[0]
+      })
+    });
+
+    setTimeout(load,1000);
+
+  }catch(err){
+    console.error(err);
+  }
 }
 
-/* WEEK DATA */
 function getWeekData(w, week){
   if(!w.weeks[week]){
     let prev=w.weeks[week-1];
@@ -247,7 +249,6 @@ function getWeekData(w, week){
   return w.weeks[week];
 }
 
-/* ADD */
 function addWorker(){
   let name=nameInput.value.trim();
   if(!name) return alert("Name required");
@@ -260,7 +261,6 @@ function addWorker(){
   save(w,getWeekData(w,currentWeek));
 }
 
-/* RENDER */
 function render(){
 
   skilledTable.querySelector("tbody").innerHTML="";
@@ -282,7 +282,6 @@ function render(){
 <td>${w.rate}</td>`;
 
     wd.days.forEach((d,di)=>{
-
       let ySel = d==="y" ? "selected" : "";
       let nSel = d==="n" ? "selected" : "";
       let hSel = d==="y/n" ? "selected" : "";
@@ -317,7 +316,6 @@ function updatePaid(i,val){
   save(workers[i],wd);
 }
 
-/* PDF */
 async function generatePDF(){
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();

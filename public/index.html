@@ -1,189 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Labour Management System</title>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
-<style>
-body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
-h1 { text-align:center; }
-.section { margin-top:20px; }
-table { width:100%; border-collapse: collapse; margin-top:10px; font-size:12px; }
-th, td { border:1px solid #fff; padding:5px; text-align:center; }
-th { background:#1e3a8a; }
-canvas { background:white; border-radius:10px; margin-top:10px; }
-.header-box { background:#1e3a8a; padding:10px; border-radius:10px; }
-
-.admin-only { display:none; }
-body.admin .admin-only { display:block; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foreman View - Labour System</title>
+    <style>
+        body { font-family: Arial; background:#0b1f3a; color:white; padding:15px; }
+        h1, h3 { text-align:center; color: #60a5fa; }
+        .summary-box { background: #1e3a8a; padding: 20px; border-radius: 10px; display: flex; justify-content: space-around; margin-bottom: 20px; border: 1px solid #3b82f6; }
+        .stat { text-align: center; }
+        .stat h2 { margin: 0; font-size: 1.5rem; }
+        table { width:100%; border-collapse: collapse; margin-top:10px; font-size:12px; }
+        th, td { border:1px solid #334155; padding:8px; text-align:center; }
+        th { background:#1e40af; }
+        tr:nth-child(even) { background: #0f172a; }
+    </style>
 </head>
-
 <body>
+    <h1>Workforce Overview</h1>
+    
+    <div class="summary-box">
+        <div class="stat"><h3>Total Arrears</h3><h2 id="sumArrears">Ksh 0</h2></div>
+        <div class="stat"><h3>Total Paid (Spent)</h3><h2 id="sumPaid">Ksh 0</h2></div>
+        <div class="stat"><h3>Total Due Balance</h3><h2 id="sumBalance">Ksh 0</h2></div>
+    </div>
 
-<h1>Labour Management System</h1>
+    <h3>Skilled Labour</h3>
+    <table id="skilledTable">
+        <thead><tr><th>Name</th><th>Rate</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th></tr></thead>
+        <tbody></tbody>
+    </table>
 
-<label>
-<input type="checkbox" onchange="toggleAdmin(this.checked)">
- Admin Mode
-</label>
+    <h3>Casual Labour</h3>
+    <table id="casualTable">
+        <thead><tr><th>Name</th><th>Rate</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th><th>Paid</th><th>Balance</th></tr></thead>
+        <tbody></tbody>
+    </table>
 
-<div class="section">
-<h3>Summary</h3>
-<p id="summary">Loading...</p>
-</div>
+    <script>
+        const API_URL = "YOUR_WEB_APP_URL_HERE";
 
-<div class="section">
-<h3>Analytics Dashboard</h3>
-<canvas id="weeklyChart"></canvas>
-<canvas id="attendanceChart"></canvas>
-</div>
+        async function loadData() {
+            const res = await fetch(API_URL);
+            const data = await res.json();
+            render(data);
+        }
 
-<div class="section">
-<h3>Skilled Labourers</h3>
-<table id="skilledTable">
-<thead>
-<tr>
-<th>Name</th><th>Rate</th>
-<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
-<th>Paid</th><th>Balance</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
+        function formatMoney(n) { return "Ksh " + (n || 0).toLocaleString(); }
 
-<div class="section">
-<h3>Casual Labourers</h3>
-<table id="casualTable">
-<thead>
-<tr>
-<th>Name</th><th>Rate</th>
-<th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-<th>Days</th><th>Total</th><th>Arrears</th><th>Total Due</th>
-<th>Paid</th><th>Balance</th>
-</tr>
-</thead>
-<tbody></tbody>
-</table>
-</div>
+        function render(data) {
+            let totals = { arrears: 0, paid: 0, balance: 0 };
+            const tables = { Skilled: document.querySelector("#skilledTable tbody"), Casual: document.querySelector("#casualTable tbody") };
+            
+            Object.values(tables).forEach(t => t.innerHTML = "");
 
-<script>
-const API_URL = "https://script.google.com/macros/s/AKfycbwesKptkPVHeFgW1uLPjHkf02o2JIkmTBfq1iBx3mFMXlp13_nOp046olQIScujDBdx/exec";
+            data.forEach(w => {
+                let daysArr = (w.Days || "").split(",");
+                let dayCount = 0;
+                daysArr.forEach(d => { 
+                    if(d === 'y') dayCount += 1; 
+                    if(d === 'y/n') dayCount += 0.5; 
+                });
 
-let workers = [];
+                let weekTotal = dayCount * w.Rate;
+                let totalDue = weekTotal + Number(w.Arrears);
+                let balance = totalDue - Number(w.Paid);
 
-/* 🔥 UPDATED ADMIN FUNCTION (LINK ONLY) */
-function toggleAdmin(state){
-  if(state){
-    window.location.href = "admin.html";
-  }
-}
+                totals.arrears += Number(w.Arrears);
+                totals.paid += Number(w.Paid);
+                totals.balance += balance;
 
-function formatMoney(n){
-  return "Ksh " + (n || 0).toLocaleString();
-}
+                let row = `<tr>
+                    <td>${w.Name}</td><td>${w.Rate}</td>
+                    ${daysArr.map(d => `<td>${d}</td>`).join('')}
+                    <td>${dayCount}</td><td>${formatMoney(weekTotal)}</td>
+                    <td>${formatMoney(w.Arrears)}</td><td>${formatMoney(totalDue)}</td>
+                    <td>${formatMoney(w.Paid)}</td><td>${formatMoney(balance)}</td>
+                </tr>`;
+                
+                if(tables[w.Type]) tables[w.Type].innerHTML += row;
+            });
 
-function normalize(d){
-  if(!d) return "";
-  d = d.toString().toLowerCase().trim();
-  if(d==="y") return "y";
-  if(d==="n") return "n";
-  if(d==="y/n") return "y/n";
-  return "";
-}
+            document.getElementById("sumArrears").innerText = formatMoney(totals.arrears);
+            document.getElementById("sumPaid").innerText = formatMoney(totals.paid);
+            document.getElementById("sumBalance").innerText = formatMoney(totals.balance);
+        }
 
-/* 🔥 FIXED LOAD */
-async function load(){
-  try{
-    let res = await fetch(API_URL);
-    let text = await res.text();
-
-    console.log("RAW:", text);
-
-    let data = JSON.parse(text);
-
-    workers = [];
-
-    data.forEach(r=>{
-      let name = r.Name || r.name || r.NAME;
-      if(!name) return;
-
-      workers.push({
-        name: name,
-        type: r.Type || r.type || "",
-        rate: +(r.Rate || r.rate || 0),
-        days: (r.Days || r.days || "").split(","),
-        paid: +(r.Paid || r.paid || 0),
-        arrears: +(r.Arrears || r.arrears || 0)
-      });
-    });
-
-    console.log("WORKERS:", workers);
-
-    render();
-
-  }catch(e){
-    console.error("ERROR:", e);
-    alert("Data failed to load. Check console.");
-  }
-}
-
-window.onload = load;
-
-/* RENDER */
-function render(){
-  let totalPaid=0,totalDue=0;
-
-  skilledTable.querySelector("tbody").innerHTML="";
-  casualTable.querySelector("tbody").innerHTML="";
-
-  workers.forEach(w=>{
-    let total=0,days=0;
-
-    let row=`<tr><td>${w.name}</td><td>${formatMoney(w.rate)}</td>`;
-
-    for(let i=0;i<7;i++){
-      let d = normalize(w.days[i]);
-      row+=`<td>${d}</td>`;
-
-      if(d==="y"){ total+=w.rate; days++; }
-      if(d==="y/n"){ total+=w.rate/2; days+=0.5; }
-    }
-
-    let totalDueW=total+(w.arrears||0);
-    let balance=totalDueW-w.paid;
-
-    totalDue+=totalDueW;
-    totalPaid+=w.paid;
-
-    row+=`
-    <td>${days}</td>
-    <td>${formatMoney(total)}</td>
-    <td>${formatMoney(w.arrears)}</td>
-    <td>${formatMoney(totalDueW)}</td>
-    <td>${formatMoney(w.paid)}</td>
-    <td>${formatMoney(balance)}</td>
-    </tr>`;
-
-    if((w.type||"").toLowerCase()==="skilled"){
-      skilledTable.querySelector("tbody").innerHTML+=row;
-    } else {
-      casualTable.querySelector("tbody").innerHTML+=row;
-    }
-  });
-
-  summary.innerText =
-    "Total Due: " + formatMoney(totalDue) +
-    " | Paid: " + formatMoney(totalPaid) +
-    " | Balance: " + formatMoney(totalDue-totalPaid);
-}
-</script>
-
+        window.onload = loadData;
+    </script>
 </body>
 </html>

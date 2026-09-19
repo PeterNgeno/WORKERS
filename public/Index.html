@@ -1,0 +1,2339 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+  <base target="_top">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1">
+
+  <title>
+    Workers Attendance & Payroll
+  </title>
+
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+    }
+
+
+    body {
+
+      margin: 0;
+
+      font-family:
+        Arial,
+        sans-serif;
+
+      background:
+        #f2f4f7;
+
+      color:
+        #222;
+
+    }
+
+
+    .header {
+
+      background:
+        #17365d;
+
+      color:
+        white;
+
+      padding:
+        20px;
+
+      text-align:
+        center;
+
+    }
+
+
+    .header h1 {
+
+      margin:
+        0;
+
+      font-size:
+        23px;
+
+    }
+
+
+    .header p {
+
+      margin:
+        6px 0 0;
+
+      font-size:
+        13px;
+
+    }
+
+
+    .container {
+
+      max-width:
+        1500px;
+
+      margin:
+        auto;
+
+      padding:
+        15px;
+
+    }
+
+
+    .card {
+
+      background:
+        white;
+
+      border-radius:
+        10px;
+
+      padding:
+        15px;
+
+      margin-bottom:
+        15px;
+
+      box-shadow:
+        0 2px 8px
+        rgba(0,0,0,.08);
+
+    }
+
+
+    .controls {
+
+      display:
+        flex;
+
+      gap:
+        10px;
+
+      flex-wrap:
+        wrap;
+
+      align-items:
+        center;
+
+    }
+
+
+    label {
+
+      font-weight:
+        bold;
+
+      font-size:
+        14px;
+
+    }
+
+
+    input,
+    select,
+    button {
+
+      min-height:
+        42px;
+
+      border-radius:
+        6px;
+
+      border:
+        1px solid #ccc;
+
+      padding:
+        8px 10px;
+
+      font-size:
+        14px;
+
+    }
+
+
+    input:focus,
+    select:focus {
+
+      outline:
+        2px solid #4a90e2;
+
+    }
+
+
+    button {
+
+      background:
+        #17365d;
+
+      color:
+        white;
+
+      border:
+        none;
+
+      cursor:
+        pointer;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    button:hover {
+
+      opacity:
+        .9;
+
+    }
+
+
+    .btn-green {
+
+      background:
+        #198754;
+
+    }
+
+
+    .btn-red {
+
+      background:
+        #dc3545;
+
+    }
+
+
+    .dashboard {
+
+      display:
+        grid;
+
+      grid-template-columns:
+        repeat(
+          auto-fit,
+          minmax(180px, 1fr)
+        );
+
+      gap:
+        12px;
+
+      margin-bottom:
+        15px;
+
+    }
+
+
+    .stat {
+
+      background:
+        white;
+
+      border-radius:
+        10px;
+
+      padding:
+        18px;
+
+      box-shadow:
+        0 2px 7px
+        rgba(0,0,0,.07);
+
+    }
+
+
+    .stat-title {
+
+      font-size:
+        13px;
+
+      color:
+        #666;
+
+    }
+
+
+    .stat-value {
+
+      font-size:
+        23px;
+
+      font-weight:
+        bold;
+
+      margin-top:
+        6px;
+
+    }
+
+
+    .add-worker {
+
+      display:
+        grid;
+
+      grid-template-columns:
+        2fr 1fr auto;
+
+      gap:
+        10px;
+
+    }
+
+
+    .table-container {
+
+      overflow-x:
+        auto;
+
+      width:
+        100%;
+
+    }
+
+
+    table {
+
+      border-collapse:
+        collapse;
+
+      width:
+        100%;
+
+      min-width:
+        1250px;
+
+    }
+
+
+    th,
+    td {
+
+      border:
+        1px solid #ddd;
+
+      padding:
+        7px;
+
+      text-align:
+        center;
+
+    }
+
+
+    th {
+
+      background:
+        #333;
+
+      color:
+        white;
+
+      white-space:
+        nowrap;
+
+    }
+
+
+    td:first-child {
+
+      text-align:
+        left;
+
+    }
+
+
+    .worker-name {
+
+      width:
+        180px;
+
+    }
+
+
+    .rate {
+
+      width:
+        100px;
+
+    }
+
+
+    .debt {
+
+      width:
+        100px;
+
+    }
+
+
+    .attendance {
+
+      width:
+        70px;
+
+    }
+
+
+    .weekly-pay {
+
+      background:
+        #eef7ee;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .debt-cell {
+
+      background:
+        #fff4d6;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .net-pay {
+
+      background:
+        #e2f0ff;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .paid {
+
+      background:
+        #d9f2df;
+
+      color:
+        #126b2d;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .not-paid {
+
+      background:
+        #ffe1e1;
+
+      color:
+        #a00000;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .grand-total-row {
+
+      background:
+        #17365d;
+
+      color:
+        white;
+
+      font-size:
+        16px;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .summary-pay {
+
+      background:
+        #eef7ee;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .summary-debt {
+
+      background:
+        #fff4d6;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .summary-net {
+
+      background:
+        #e2f0ff;
+
+      font-weight:
+        bold;
+
+    }
+
+
+    .instructions {
+
+      background:
+        #fff8dd;
+
+      border-left:
+        5px solid #f0ad00;
+
+      padding:
+        12px;
+
+      font-size:
+        14px;
+
+      line-height:
+        1.6;
+
+    }
+
+
+    .loading {
+
+      text-align:
+        center;
+
+      padding:
+        25px;
+
+      font-weight:
+        bold;
+
+      color:
+        #666;
+
+    }
+
+
+    .message {
+
+      display:
+        none;
+
+      padding:
+        12px;
+
+      border-radius:
+        7px;
+
+      margin-bottom:
+        12px;
+
+    }
+
+
+    .success {
+
+      display:
+        block;
+
+      background:
+        #dff5e4;
+
+      color:
+        #166534;
+
+    }
+
+
+    .error {
+
+      display:
+        block;
+
+      background:
+        #ffe0e0;
+
+      color:
+        #991b1b;
+
+    }
+
+
+    .section-title {
+
+      margin-top:
+        0;
+
+    }
+
+
+    @media(max-width:700px) {
+
+      .container {
+
+        padding:
+          8px;
+
+      }
+
+
+      .add-worker {
+
+        grid-template-columns:
+          1fr;
+
+      }
+
+
+      .header h1 {
+
+        font-size:
+          19px;
+
+      }
+
+
+      .stat-value {
+
+        font-size:
+          20px;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     HEADER
+===================================================== -->
+
+<div class="header">
+
+  <h1>
+    Workers Attendance & Payroll
+  </h1>
+
+  <p>
+    Sunday – Saturday Weekly Records
+  </p>
+
+</div>
+
+
+<div class="container">
+
+
+<!-- =====================================================
+     MESSAGE
+===================================================== -->
+
+<div
+  id="message"
+  class="message">
+</div>
+
+
+<!-- =====================================================
+     WEEK SELECTOR
+===================================================== -->
+
+<div class="card">
+
+  <div class="controls">
+
+    <label>
+      Select Week:
+    </label>
+
+
+    <input
+      type="date"
+      id="weekDate">
+
+
+    <button
+      onclick="loadWeek()">
+
+      Load Week
+
+    </button>
+
+
+    <button
+      class="btn-green"
+      onclick="createSelectedWeek()">
+
+      Create Week
+
+    </button>
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     DASHBOARD
+===================================================== -->
+
+<div class="dashboard">
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      Number of Workers
+    </div>
+
+    <div
+      class="stat-value"
+      id="workerCount">
+
+      0
+
+    </div>
+
+  </div>
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      Total Weekly Pay
+    </div>
+
+    <div
+      class="stat-value"
+      id="totalWeeklyPay">
+
+      Ksh 0.00
+
+    </div>
+
+  </div>
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      Total Debt Deducted
+    </div>
+
+    <div
+      class="stat-value"
+      id="totalDebt">
+
+      Ksh 0.00
+
+    </div>
+
+  </div>
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      GRAND NET PAY
+    </div>
+
+    <div
+      class="stat-value"
+      id="grandNetPay">
+
+      Ksh 0.00
+
+    </div>
+
+  </div>
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      Paid
+    </div>
+
+    <div
+      class="stat-value"
+      id="paidAmount">
+
+      Ksh 0.00
+
+    </div>
+
+  </div>
+
+
+  <div class="stat">
+
+    <div class="stat-title">
+      Not Paid
+    </div>
+
+    <div
+      class="stat-value"
+      id="unpaidAmount">
+
+      Ksh 0.00
+
+    </div>
+
+  </div>
+
+
+</div>
+
+
+<!-- =====================================================
+     ADD WORKER
+===================================================== -->
+
+<div class="card">
+
+  <h3>
+    Add Worker
+  </h3>
+
+
+  <div class="add-worker">
+
+    <input
+      type="text"
+      id="workerName"
+      placeholder="Worker name">
+
+
+    <input
+      type="number"
+      id="workerRate"
+      min="0"
+      placeholder="Daily rate (Ksh)">
+
+
+    <button
+      class="btn-green"
+      onclick="addWorker()">
+
+      + Add Worker
+
+    </button>
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     INSTRUCTIONS
+===================================================== -->
+
+<div class="card">
+
+  <div class="instructions">
+
+    <b>Attendance values:</b>
+
+    <br>
+
+    <b>1</b>
+    = Full day
+
+    <br>
+
+    <b>0.5</b>
+    = Half day
+
+    <br>
+
+    <b>0</b>
+    = Absent
+
+    <br><br>
+
+    <b>Weekly Pay</b>
+    =
+    Daily Rate × Total Attendance
+
+    <br>
+
+    <b>Net Pay</b>
+    =
+    Weekly Pay − Debt
+
+    <br><br>
+
+    Example:
+
+    <br>
+
+    Daily rate =
+    <b>Ksh 1,200</b>
+
+    <br>
+
+    Attendance =
+    5.5 days
+
+    <br>
+
+    Weekly Pay =
+    <b>Ksh 6,600</b>
+
+    <br>
+
+    Debt =
+    <b>Ksh 1,000</b>
+
+    <br>
+
+    Net Pay =
+    <b>Ksh 5,600</b>
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     DAILY ATTENDANCE TABLE
+===================================================== -->
+
+<div class="card">
+
+  <h2 class="section-title">
+    Daily Attendance & Payroll
+  </h2>
+
+
+  <div
+    id="tableArea"
+    class="loading">
+
+    Loading...
+
+  </div>
+
+</div>
+
+
+<!-- =====================================================
+     WEEKLY WORKER TOTALS
+===================================================== -->
+
+<div class="card">
+
+  <h2 class="section-title">
+    Weekly Worker Totals
+  </h2>
+
+
+  <div class="table-container">
+
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>
+            Worker Name
+          </th>
+
+          <th>
+            Weekly Pay
+          </th>
+
+          <th>
+            Debt
+          </th>
+
+          <th>
+            Net Pay
+          </th>
+
+          <th>
+            Payment Status
+          </th>
+
+        </tr>
+
+      </thead>
+
+
+      <tbody
+        id="totalsBody">
+
+      </tbody>
+
+
+      <tfoot>
+
+        <tr
+          class="grand-total-row">
+
+          <td>
+            GRAND TOTAL
+          </td>
+
+          <td
+            id="summaryWeeklyPay">
+
+            Ksh 0.00
+
+          </td>
+
+          <td
+            id="summaryDebt">
+
+            Ksh 0.00
+
+          </td>
+
+          <td
+            id="summaryNetPay">
+
+            Ksh 0.00
+
+          </td>
+
+          <td>
+            ALL WORKERS
+          </td>
+
+        </tr>
+
+      </tfoot>
+
+    </table>
+
+  </div>
+
+</div>
+
+
+</div>
+
+
+<script>
+
+
+let currentData = null;
+
+
+/* =====================================================
+   PAGE START
+===================================================== */
+
+window.onload =
+  function() {
+
+    setCurrentSunday();
+
+    loadWeek();
+
+  };
+
+
+/* =====================================================
+   SET CURRENT SUNDAY
+===================================================== */
+
+function setCurrentSunday() {
+
+  const today =
+    new Date();
+
+
+  const day =
+    today.getDay();
+
+
+  const sunday =
+    new Date(
+      today
+    );
+
+
+  sunday.setDate(
+    today.getDate() - day
+  );
+
+
+  document
+    .getElementById(
+      "weekDate"
+    )
+    .value =
+    formatDateInput(
+      sunday
+    );
+
+}
+
+
+/* =====================================================
+   FORMAT DATE
+===================================================== */
+
+function formatDateInput(
+  date
+) {
+
+  const y =
+    date.getFullYear();
+
+
+  const m =
+    String(
+      date.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  const d =
+    String(
+      date.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+
+  return `${y}-${m}-${d}`;
+
+}
+
+
+/* =====================================================
+   LOAD WEEK
+===================================================== */
+
+function loadWeek() {
+
+  let date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  if (!date) {
+
+    setCurrentSunday();
+
+    date =
+      document
+        .getElementById(
+          "weekDate"
+        )
+        .value;
+
+  }
+
+
+  showLoading();
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        currentData =
+          data;
+
+
+        renderTable(
+          data
+        );
+
+
+        loadDashboard();
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .getWeekData(
+      date
+    );
+
+}
+
+
+/* =====================================================
+   CREATE WEEK
+===================================================== */
+
+function createSelectedWeek() {
+
+  const date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        currentData =
+          data;
+
+
+        renderTable(
+          data
+        );
+
+
+        loadDashboard();
+
+
+        showMessage(
+          "Week created successfully.",
+          "success"
+        );
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .createWeek(
+      date
+    );
+
+}
+
+
+/* =====================================================
+   ADD WORKER
+===================================================== */
+
+function addWorker() {
+
+  const name =
+    document
+      .getElementById(
+        "workerName"
+      )
+      .value
+      .trim();
+
+
+  const rate =
+    document
+      .getElementById(
+        "workerRate"
+      )
+      .value;
+
+
+  const date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  if (!name) {
+
+    showMessage(
+      "Please enter the worker name.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    rate === "" ||
+    Number(rate) < 0
+  ) {
+
+    showMessage(
+      "Please enter a valid daily rate.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        currentData =
+          data;
+
+
+        document
+          .getElementById(
+            "workerName"
+          )
+          .value = "";
+
+
+        document
+          .getElementById(
+            "workerRate"
+          )
+          .value = "";
+
+
+        renderTable(
+          data
+        );
+
+
+        loadDashboard();
+
+
+        showMessage(
+          "Worker added successfully.",
+          "success"
+        );
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .addWorker(
+      date,
+      name,
+      Number(rate)
+    );
+
+}
+
+
+/* =====================================================
+   RENDER MAIN TABLE
+===================================================== */
+
+function renderTable(
+  data
+) {
+
+  if (
+    !data.workers ||
+    data.workers.length === 0
+  ) {
+
+    document
+      .getElementById(
+        "tableArea"
+      )
+      .innerHTML = `
+
+        <div class="loading">
+
+          No workers added for this week.
+
+          <br><br>
+
+          Add workers above.
+
+        </div>
+
+      `;
+
+    return;
+
+  }
+
+
+  let html = `
+
+    <table>
+
+      <thead>
+
+        <tr>
+
+          <th>
+            Worker Name
+          </th>
+
+          <th>
+            Rate / Day
+          </th>
+
+          <th>
+            Sunday
+          </th>
+
+          <th>
+            Monday
+          </th>
+
+          <th>
+            Tuesday
+          </th>
+
+          <th>
+            Wednesday
+          </th>
+
+          <th>
+            Thursday
+          </th>
+
+          <th>
+            Friday
+          </th>
+
+          <th>
+            Saturday
+          </th>
+
+          <th>
+            Weekly Pay
+          </th>
+
+          <th>
+            Debt
+          </th>
+
+          <th>
+            Net Pay
+          </th>
+
+          <th>
+            Status
+          </th>
+
+          <th>
+            Save
+          </th>
+
+          <th>
+            Delete
+          </th>
+
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+  `;
+
+
+  data.workers.forEach(
+    function(worker) {
+
+      html += `
+
+        <tr>
+
+          <td>
+
+            <input
+              class="worker-name"
+              id="name-${worker.row}"
+              value="${escapeHtml(worker.name)}">
+
+          </td>
+
+
+          <td>
+
+            <input
+              class="rate"
+              type="number"
+              min="0"
+              id="rate-${worker.row}"
+              value="${worker.rate}">
+
+          </td>
+
+      `;
+
+
+      worker.attendance.forEach(
+        function(
+          value,
+          dayIndex
+        ) {
+
+          html += `
+
+            <td>
+
+              <select
+                class="attendance"
+                id="day-${worker.row}-${dayIndex}">
+
+                <option
+                  value="0"
+                  ${
+                    value === 0
+                      ? "selected"
+                      : ""
+                  }>
+
+                  0
+
+                </option>
+
+
+                <option
+                  value="0.5"
+                  ${
+                    value === 0.5
+                      ? "selected"
+                      : ""
+                  }>
+
+                  0.5
+
+                </option>
+
+
+                <option
+                  value="1"
+                  ${
+                    value === 1
+                      ? "selected"
+                      : ""
+                  }>
+
+                  1
+
+                </option>
+
+              </select>
+
+            </td>
+
+          `;
+
+        }
+      );
+
+
+      html += `
+
+          <td
+            class="weekly-pay">
+
+            Ksh
+            ${formatMoney(
+              worker.weeklyPay
+            )}
+
+          </td>
+
+
+          <td>
+
+            <input
+              class="debt"
+              type="number"
+              min="0"
+              id="debt-${worker.row}"
+              value="${worker.debt}">
+
+          </td>
+
+
+          <td
+            class="net-pay">
+
+            Ksh
+            ${formatMoney(
+              worker.netPay
+            )}
+
+          </td>
+
+
+          <td>
+
+            <select
+              id="status-${worker.row}">
+
+              <option
+                value="Not Paid"
+                ${
+                  worker.status ===
+                  "Not Paid"
+                    ? "selected"
+                    : ""
+                }>
+
+                Not Paid
+
+              </option>
+
+
+              <option
+                value="Paid"
+                ${
+                  worker.status ===
+                  "Paid"
+                    ? "selected"
+                    : ""
+                }>
+
+                Paid
+
+              </option>
+
+            </select>
+
+          </td>
+
+
+          <td>
+
+            <button
+              class="btn-green"
+              onclick="saveWorker(${worker.row})">
+
+              Save
+
+            </button>
+
+          </td>
+
+
+          <td>
+
+            <button
+              class="btn-red"
+              onclick="deleteWorker(${worker.row})">
+
+              Delete
+
+            </button>
+
+          </td>
+
+
+        </tr>
+
+      `;
+
+    }
+  );
+
+
+  html += `
+
+      </tbody>
+
+    </table>
+
+  `;
+
+
+  document
+    .getElementById(
+      "tableArea"
+    )
+    .innerHTML =
+    html;
+
+}
+
+
+/* =====================================================
+   SAVE WORKER
+===================================================== */
+
+function saveWorker(
+  row
+) {
+
+  const date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  const name =
+    document
+      .getElementById(
+        `name-${row}`
+      )
+      .value
+      .trim();
+
+
+  const rate =
+    Number(
+      document
+        .getElementById(
+          `rate-${row}`
+        )
+        .value
+    );
+
+
+  const debt =
+    Number(
+      document
+        .getElementById(
+          `debt-${row}`
+        )
+        .value
+    );
+
+
+  const attendance = [];
+
+
+  for (
+    let i = 0;
+    i < 7;
+    i++
+  ) {
+
+    attendance.push(
+      Number(
+        document
+          .getElementById(
+            `day-${row}-${i}`
+          )
+          .value
+      )
+    );
+
+  }
+
+
+  const status =
+    document
+      .getElementById(
+        `status-${row}`
+      )
+      .value;
+
+
+  if (!name) {
+
+    showMessage(
+      "Worker name cannot be empty.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    isNaN(rate) ||
+    rate < 0
+  ) {
+
+    showMessage(
+      "Please enter a valid rate.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  if (
+    isNaN(debt) ||
+    debt < 0
+  ) {
+
+    showMessage(
+      "Debt cannot be negative.",
+      "error"
+    );
+
+    return;
+
+  }
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        currentData =
+          data;
+
+
+        renderTable(
+          data
+        );
+
+
+        loadDashboard();
+
+
+        showMessage(
+          "Worker record saved successfully.",
+          "success"
+        );
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .updateWorker(
+      date,
+      row,
+      name,
+      rate,
+      attendance,
+      debt,
+      status
+    );
+
+}
+
+
+/* =====================================================
+   DELETE WORKER
+===================================================== */
+
+function deleteWorker(
+  row
+) {
+
+  if (
+    !confirm(
+      "Delete this worker from this week's records?"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+        currentData =
+          data;
+
+
+        renderTable(
+          data
+        );
+
+
+        loadDashboard();
+
+
+        showMessage(
+          "Worker deleted.",
+          "success"
+        );
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .deleteWorker(
+      date,
+      row
+    );
+
+}
+
+
+/* =====================================================
+   DASHBOARD
+===================================================== */
+
+function loadDashboard() {
+
+  const date =
+    document
+      .getElementById(
+        "weekDate"
+      )
+      .value;
+
+
+  google.script.run
+
+    .withSuccessHandler(
+      function(data) {
+
+
+        document
+          .getElementById(
+            "workerCount"
+          )
+          .textContent =
+          data.workerCount;
+
+
+        document
+          .getElementById(
+            "totalWeeklyPay"
+          )
+          .textContent =
+          "Ksh " +
+          formatMoney(
+            data.totalWeeklyPay
+          );
+
+
+        document
+          .getElementById(
+            "totalDebt"
+          )
+          .textContent =
+          "Ksh " +
+          formatMoney(
+            data.totalDebt
+          );
+
+
+        document
+          .getElementById(
+            "grandNetPay"
+          )
+          .textContent =
+          "Ksh " +
+          formatMoney(
+            data.grandNetPay
+          );
+
+
+        document
+          .getElementById(
+            "paidAmount"
+          )
+          .textContent =
+          "Ksh " +
+          formatMoney(
+            data.paid
+          );
+
+
+        document
+          .getElementById(
+            "unpaidAmount"
+          )
+          .textContent =
+          "Ksh " +
+          formatMoney(
+            data.unpaid
+          );
+
+
+        renderWorkerTotals(
+          data
+        );
+
+      }
+    )
+
+    .withFailureHandler(
+      showError
+    )
+
+    .getDashboardData(
+      date
+    );
+
+}
+
+
+/* =====================================================
+   WEEKLY WORKER TOTALS
+===================================================== */
+
+function renderWorkerTotals(
+  data
+) {
+
+  const body =
+    document
+      .getElementById(
+        "totalsBody"
+      );
+
+
+  const weeklyPay =
+    document
+      .getElementById(
+        "summaryWeeklyPay"
+      );
+
+
+  const debt =
+    document
+      .getElementById(
+        "summaryDebt"
+      );
+
+
+  const netPay =
+    document
+      .getElementById(
+        "summaryNetPay"
+      );
+
+
+  body.innerHTML =
+    "";
+
+
+  if (
+    !data.workerTotals ||
+    data.workerTotals.length === 0
+  ) {
+
+    body.innerHTML = `
+
+      <tr>
+
+        <td colspan="5">
+
+          No workers recorded.
+
+        </td>
+
+      </tr>
+
+    `;
+
+
+    weeklyPay.textContent =
+      "Ksh 0.00";
+
+
+    debt.textContent =
+      "Ksh 0.00";
+
+
+    netPay.textContent =
+      "Ksh 0.00";
+
+
+    return;
+
+  }
+
+
+  data.workerTotals.forEach(
+    function(worker) {
+
+      const row =
+        document.createElement(
+          "tr"
+        );
+
+
+      const statusClass =
+        worker.status === "Paid"
+          ? "paid"
+          : "not-paid";
+
+
+      row.innerHTML = `
+
+        <td>
+
+          ${escapeHtml(
+            worker.name
+          )}
+
+        </td>
+
+
+        <td class="summary-pay">
+
+          Ksh
+          ${formatMoney(
+            worker.weeklyPay
+          )}
+
+        </td>
+
+
+        <td class="summary-debt">
+
+          Ksh
+          ${formatMoney(
+            worker.debt
+          )}
+
+        </td>
+
+
+        <td class="summary-net">
+
+          Ksh
+          ${formatMoney(
+            worker.netPay
+          )}
+
+        </td>
+
+
+        <td class="${statusClass}">
+
+          ${escapeHtml(
+            worker.status
+          )}
+
+        </td>
+
+      `;
+
+
+      body.appendChild(
+        row
+      );
+
+    }
+  );
+
+
+  weeklyPay.textContent =
+    "Ksh " +
+    formatMoney(
+      data.totalWeeklyPay
+    );
+
+
+  debt.textContent =
+    "Ksh " +
+    formatMoney(
+      data.totalDebt
+    );
+
+
+  netPay.textContent =
+    "Ksh " +
+    formatMoney(
+      data.grandNetPay
+    );
+
+}
+
+
+/* =====================================================
+   LOADING
+===================================================== */
+
+function showLoading() {
+
+  document
+    .getElementById(
+      "tableArea"
+    )
+    .innerHTML = `
+
+      <div class="loading">
+
+        Loading workers...
+
+      </div>
+
+    `;
+
+}
+
+
+/* =====================================================
+   MESSAGE
+===================================================== */
+
+function showMessage(
+  message,
+  type
+) {
+
+  const box =
+    document.getElementById(
+      "message"
+    );
+
+
+  box.textContent =
+    message;
+
+
+  box.className =
+    "message " +
+    type;
+
+
+  setTimeout(
+    function() {
+
+      box.className =
+        "message";
+
+    },
+    3500
+  );
+
+}
+
+
+/* =====================================================
+   ERROR
+===================================================== */
+
+function showError(
+  error
+) {
+
+  console.error(
+    error
+  );
+
+
+  showMessage(
+    error.message ||
+    "An error occurred.",
+    "error"
+  );
+
+}
+
+
+/* =====================================================
+   MONEY
+===================================================== */
+
+function formatMoney(
+  value
+) {
+
+  return Number(
+    value || 0
+  ).toLocaleString(
+    "en-KE",
+    {
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2
+    }
+  );
+
+}
+
+
+/* =====================================================
+   ESCAPE HTML
+===================================================== */
+
+function escapeHtml(
+  value
+) {
+
+  return String(
+    value
+  )
+
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+
+    .replace(
+      /</g,
+      "&lt;"
+    )
+
+    .replace(
+      />/g,
+      "&gt;"
+    )
+
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+
+    .replace(
+      /'/g,
+      "&#039;"
+    );
+
+}
+
+</script>
+
+
+</body>
+
+    </html>
